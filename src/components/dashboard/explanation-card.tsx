@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -61,7 +62,7 @@ export function ExplanationCard({ imageDataUris, analysisResult, isLoading }: Ex
     } else {
       toast({
         variant: 'destructive',
-        title: `Explanation Failed for Image ${index + 1}`,
+        title: `Explanation Failed for File ${index + 1}`,
         description: result.error,
       });
       setExplanations(prev => ({
@@ -70,6 +71,10 @@ export function ExplanationCard({ imageDataUris, analysisResult, isLoading }: Ex
       }));
     }
   };
+  
+  const getMediaType = (dataUri: string): 'image' | 'video' => {
+    return dataUri.startsWith('data:video') ? 'video' : 'image';
+  }
 
   if (isLoading) {
     return (
@@ -94,7 +99,7 @@ export function ExplanationCard({ imageDataUris, analysisResult, isLoading }: Ex
           <Lightbulb className="w-5 h-5 text-primary" />
           <span>Explainable AI</span>
         </CardTitle>
-        <CardDescription>Visually explain how the AI reached its conclusion for each image.</CardDescription>
+        <CardDescription>Visually explain how the AI reached its conclusion for each file.</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow flex flex-col items-center justify-center space-y-4">
         <Carousel className="w-full max-w-xl" opts={{ loop: true }}>
@@ -103,14 +108,21 @@ export function ExplanationCard({ imageDataUris, analysisResult, isLoading }: Ex
               const currentExplanation = explanations[uri];
               const isGenerating = currentExplanation?.isGenerating;
               const explanation = currentExplanation?.explanation;
+              const mediaType = getMediaType(uri);
 
               return (
                 <CarouselItem key={index}>
                   <div className="p-1 space-y-4">
-                     <p className="text-center font-semibold text-sm">Image {index + 1} of {imageDataUris.length}</p>
+                     <p className="text-center font-semibold text-sm">File {index + 1} of {imageDataUris.length}</p>
                     <div className="grid grid-cols-2 gap-4 w-full">
                       <div className="text-center">
-                        <Image src={uri} alt={`Original Scan ${index+1}`} width={200} height={200} className="rounded-md border mx-auto object-cover aspect-square" data-ai-hint="xray scan" />
+                         <div className="relative w-full h-[200px] bg-black rounded-md border flex items-center justify-center">
+                          {mediaType === 'image' ? (
+                            <Image src={uri} alt={`Original Scan ${index+1}`} layout="fill" objectFit="contain" className="rounded-md" data-ai-hint="xray scan" />
+                          ) : (
+                            <video src={uri} muted playsInline controls={false} className="max-w-full max-h-full rounded-md" data-ai-hint="ultrasound scan" />
+                          )}
+                        </div>
                         <p className="text-xs font-semibold mt-2">Original</p>
                       </div>
                       <div className="text-center space-y-2">

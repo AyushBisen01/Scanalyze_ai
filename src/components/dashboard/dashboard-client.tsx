@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import type { AnalysisResult } from '@/app/actions';
-import type { GenerateDetailedReportOutput } from '@/ai/flows/generate-detailed-report';
-import type { ExplainDiagnosisOutput } from '@/ai/flows/explain-diagnosis';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUploadCard } from './image-upload-card';
 import { AnalysisCard } from './analysis-card';
@@ -16,17 +14,13 @@ import { performAnalysisAction } from '@/app/actions';
 export function DashboardClient() {
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [detailedReport, setDetailedReport] = useState<GenerateDetailedReportOutput | null>(null);
-  const [explanation, setExplanation] = useState<ExplainDiagnosisOutput | null>(null);
-
+  
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
 
   const resetState = () => {
     setImageDataUri(null);
     setAnalysisResult(null);
-    setDetailedReport(null);
-    setExplanation(null);
     setIsAnalyzing(false);
   };
 
@@ -52,53 +46,29 @@ export function DashboardClient() {
 
   return (
     <div className="container mx-auto max-w-7xl py-4 sm:py-6 md:py-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        <div className="md:col-span-2 xl:col-span-3">
-          <ImageUploadCard
-            onImageUpload={handleImageUpload}
-            isAnalyzing={isAnalyzing}
-            onClear={resetState}
-            hasImage={!!imageDataUri}
-          />
-        </div>
+      <div className="grid grid-cols-1 gap-6">
+        <ImageUploadCard
+          onImageUpload={handleImageUpload}
+          isAnalyzing={isAnalyzing}
+          onClear={resetState}
+          hasImage={!!imageDataUri}
+        />
 
-        {isAnalyzing && (
-          <>
-            <div className="md:col-span-2 xl:col-span-1">
-              <AnalysisCard isLoading={true} />
-            </div>
-            <ExplanationCard isLoading={true} />
-            <ReportCard isLoading={true} />
-          </>
+        {(isAnalyzing || analysisResult) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <AnalysisCard isLoading={isAnalyzing} result={analysisResult} />
+            <ExplanationCard isLoading={isAnalyzing} imageDataUri={imageDataUri} analysisResult={analysisResult} />
+          </div>
+        )}
+        
+        {(isAnalyzing || analysisResult) && (
+           <ReportCard isLoading={isAnalyzing} imageDataUri={imageDataUri} analysisResult={analysisResult} />
         )}
 
-        {analysisResult && imageDataUri && (
+        {analysisResult && (
           <>
-            <div className="md:col-span-2 xl:col-span-1">
-              <AnalysisCard result={analysisResult} />
-            </div>
-            
-            <ReportCard
-              imageDataUri={imageDataUri}
-              analysisResult={analysisResult}
-              detailedReport={detailedReport}
-              setDetailedReport={setDetailedReport}
-            />
-
-            <ExplanationCard
-              imageDataUri={imageDataUri}
-              analysisResult={analysisResult}
-              explanation={explanation}
-              setExplanation={setExplanation}
-            />
-            
-            <div className="md:col-span-2 xl:col-span-3">
-              <SymptomCorrelatorCard analysisResult={analysisResult} />
-            </div>
-
-            <div className="md:col-span-2 xl:col-span-3">
-              <AssistantCard analysisResult={analysisResult} />
-            </div>
+            <SymptomCorrelatorCard analysisResult={analysisResult} />
+            <AssistantCard analysisResult={analysisResult} />
           </>
         )}
       </div>

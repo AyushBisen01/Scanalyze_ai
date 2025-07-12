@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import type { AnalysisResult } from '@/app/actions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,14 +14,18 @@ import type { ExplainDiagnosisOutput } from '@/ai/flows/explain-diagnosis';
 interface ExplanationCardProps {
   imageDataUri?: string | null;
   analysisResult?: AnalysisResult | null;
-  explanation?: ExplainDiagnosisOutput | null;
-  setExplanation: (explanation: ExplainDiagnosisOutput | null) => void;
   isLoading?: boolean;
 }
 
-export function ExplanationCard({ imageDataUri, analysisResult, explanation, setExplanation, isLoading }: ExplanationCardProps) {
+export function ExplanationCard({ imageDataUri, analysisResult, isLoading }: ExplanationCardProps) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [explanation, setExplanation] = useState<ExplainDiagnosisOutput | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Reset explanation when a new image is uploaded (analysisResult changes)
+    setExplanation(null);
+  }, [analysisResult]);
 
   const handleExplain = async () => {
     if (!imageDataUri || !analysisResult?.findings) return;
@@ -90,7 +94,7 @@ export function ExplanationCard({ imageDataUri, analysisResult, explanation, set
             <p className="text-sm text-muted-foreground">Explanation will appear here.</p>
           </div>
         )}
-        <Button onClick={handleExplain} disabled={isGenerating} className="w-full">
+        <Button onClick={handleExplain} disabled={isGenerating || !analysisResult} className="w-full">
           {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
           {explanation ? 'Regenerate Explanation' : 'Generate Explanation'}
         </Button>

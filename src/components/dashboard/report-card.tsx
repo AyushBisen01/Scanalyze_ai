@@ -56,7 +56,7 @@ const getPdfFilename = (markdown: string, patientName?: string): string => {
     }
 
     // Fallback to patient name
-    if (patientName) {
+    if (patientName && patientName.trim() !== '') {
         const safePatientName = patientName.replace(/[^a-z0-9]/gi, '_').replace(/_{2,}/g, '_');
         return `RadioAgent_Report_${safePatientName}.pdf`;
     }
@@ -153,13 +153,13 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
 
     let imageSectionHtml = '';
     if (imageUrisToProcess.length > 0) {
-      imageSectionHtml += `<div style="margin-bottom: 20px; text-align: center; page-break-before: auto; page-break-after: always;">
+      imageSectionHtml += `<div style="margin-bottom: 20px; page-break-before: auto; page-break-after: always;">
         <h2 style="font-size: 18px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 15px;">Key Images</h2>`;
       
       imageUrisToProcess.forEach((uri, index) => {
         const explanationImageUri = explanations[uri]?.explanation?.explanationImage;
         imageSectionHtml += `
-          <div style="display: flex; justify-content: space-around; align-items: flex-start; gap: 20px; margin-bottom: 25px; page-break-inside: avoid;">
+          <div style="display: flex; justify-content: space-around; align-items: flex-start; gap: 20px; margin-bottom: 25px; page-break-inside: avoid; text-align: center;">
             <div style="width: 48%;">
               <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">Original Scan (File ${index + 1})</h3>
               <img src="${uri}" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;" />
@@ -201,35 +201,29 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
             throw new Error('PDF content element not found');
         }
 
-        const canvas = await html2canvas(content, { scale: 2, useCORS: true, windowWidth: content.scrollWidth, windowHeight: content.scrollHeight });
+        const canvas = await html2canvas(content, { scale: 2, useCORS: true });
         const imgData = canvas.toDataURL('image/png');
         
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
         
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-        const ratio = canvasWidth / pdfWidth;
-        const totalPdfPages = Math.ceil(canvasHeight / (pdfHeight * ratio));
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        const ratio = imgWidth / pdfWidth;
+        const pageHeight = pdfHeight * ratio;
+        let heightLeft = imgHeight;
+        
+        let position = 0;
 
-        for (let i = 0; i < totalPdfPages; i++) {
-            if (i > 0) {
-                pdf.addPage();
-            }
-            const yPosition = i * pdfHeight * ratio;
-            pdf.addImage(
-                imgData,
-                'PNG',
-                0, // x position in PDF
-                0, // y position in PDF
-                pdfWidth, // width of image in PDF
-                canvasHeight / ratio, // height of image in PDF
-                undefined,
-                'FAST',
-                // The following defines the slice of the canvas to render
-                yPosition // The y-coordinate in the source canvas
-            );
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight / ratio);
+        heightLeft -= pageHeight;
+
+        while (heightLeft > 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight / ratio);
+            heightLeft -= pageHeight;
         }
 
         const filename = getPdfFilename(detailedReportMarkdown, patientInfo.patientName);

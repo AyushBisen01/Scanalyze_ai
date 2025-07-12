@@ -148,8 +148,8 @@ export function ExplanationCard({ imageDataUris, analysisResult, isLoading }: Ex
           </CarouselContent>
           {imageDataUris.length > 1 && (
             <>
-              <CarouselPrevious className="hidden md:flex" />
-              <CarouselNext className="hidden md:flex" />
+              <CarouselPrevious className="hidden md:flex -left-4" />
+              <CarouselNext className="hidden md:flex -right-4" />
             </>
           )}
         </Carousel>

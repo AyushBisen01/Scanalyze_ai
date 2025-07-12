@@ -10,6 +10,7 @@ import { AnalysisCard } from './analysis-card';
 import { ReportCard } from './report-card';
 import { ExplanationCard } from './explanation-card';
 import { AssistantCard } from './assistant-card';
+import { SymptomCorrelatorCard } from './symptom-correlator-card';
 import { performAnalysisAction } from '@/app/actions';
 
 export function DashboardClient() {
@@ -50,9 +51,9 @@ export function DashboardClient() {
   };
 
   return (
-    <div className="container mx-auto max-w-7xl">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-3">
+    <div className="container mx-auto max-w-7xl py-4 sm:py-6 md:py-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="md:col-span-2 xl:col-span-3">
           <ImageUploadCard
             onImageUpload={handleImageUpload}
             isAnalyzing={isAnalyzing}
@@ -63,7 +64,9 @@ export function DashboardClient() {
 
         {isAnalyzing && (
           <>
-            <AnalysisCard isLoading={true} />
+            <div className="md:col-span-2 xl:col-span-1">
+              <AnalysisCard isLoading={true} />
+            </div>
             <ExplanationCard isLoading={true} />
             <ReportCard isLoading={true} />
           </>
@@ -71,24 +74,29 @@ export function DashboardClient() {
 
         {analysisResult && imageDataUri && (
           <>
-            <AnalysisCard result={analysisResult} />
+            <div className="md:col-span-2 xl:col-span-1">
+              <AnalysisCard result={analysisResult} />
+            </div>
             
-            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <ExplanationCard
-                imageDataUri={imageDataUri}
-                analysisResult={analysisResult}
-                explanation={explanation}
-                setExplanation={setExplanation}
-              />
-              <ReportCard
-                imageDataUri={imageDataUri}
-                analysisResult={analysisResult}
-                detailedReport={detailedReport}
-                setDetailedReport={setDetailedReport}
-              />
+            <ReportCard
+              imageDataUri={imageDataUri}
+              analysisResult={analysisResult}
+              detailedReport={detailedReport}
+              setDetailedReport={setDetailedReport}
+            />
+
+            <ExplanationCard
+              imageDataUri={imageDataUri}
+              analysisResult={analysisResult}
+              explanation={explanation}
+              setExplanation={setExplanation}
+            />
+            
+            <div className="md:col-span-2 xl:col-span-3">
+              <SymptomCorrelatorCard analysisResult={analysisResult} />
             </div>
 
-            <div className="lg:col-span-3">
+            <div className="md:col-span-2 xl:col-span-3">
               <AssistantCard analysisResult={analysisResult} />
             </div>
           </>

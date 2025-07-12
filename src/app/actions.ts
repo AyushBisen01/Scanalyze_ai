@@ -7,6 +7,8 @@ import { generateDetailedReport } from '@/ai/flows/generate-detailed-report';
 import type { GenerateDetailedReportInput, GenerateDetailedReportOutput } from '@/ai/flows/generate-detailed-report';
 import { explainDiagnosis } from '@/ai/flows/explain-diagnosis';
 import type { ExplainDiagnosisInput, ExplainDiagnosisOutput } from '@/ai/flows/explain-diagnosis';
+import { correlateSymptoms } from '@/ai/flows/correlate-symptoms';
+import type { CorrelateSymptomsInput, CorrelateSymptomsOutput } from '@/ai/flows/correlate-symptoms';
 
 export type AnalysisResult = {
   findings: string;
@@ -76,5 +78,17 @@ export async function getConversationalResponse(
   } catch (error) {
     console.error('Error in getConversationalResponse:', error);
     return { success: false, error: 'An error occurred while getting a response.' };
+  }
+}
+
+export async function correlateSymptomsAction(
+  input: CorrelateSymptomsInput
+): Promise<{ success: true; data: CorrelateSymptomsOutput } | { success: false; error: string }> {
+  try {
+    const result = await correlateSymptoms(input);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error in correlateSymptomsAction:', error);
+    return { success: false, error: 'An error occurred during symptom correlation.' };
   }
 }

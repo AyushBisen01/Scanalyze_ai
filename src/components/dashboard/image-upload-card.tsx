@@ -27,41 +27,37 @@ export function ImageUploadCard({ onAnalyze, isAnalyzing, onClear, hasImages }: 
     if (isAnalyzing) return;
     if (!files || files.length === 0) return;
 
-    if (files.length > MAX_FILES) {
+    const totalAfterAdd = selectedImages.length + files.length;
+    if (totalAfterAdd > MAX_FILES) {
       toast({
         variant: 'destructive',
         title: 'Too many files',
-        description: `You can upload a maximum of ${MAX_FILES} images at a time.`,
+        description: `You can upload a maximum of ${MAX_FILES} images. You have already selected ${selectedImages.length}.`,
       });
       return;
     }
     
-    const dataUris: string[] = [];
-    const newPreviews: string[] = [];
-    let processedFiles = 0;
-
     const fileArray = Array.from(files);
-    
-    onClear(); // Clear previous state before processing new files
+    let newPreviews: string[] = [];
+    let processedFiles = 0;
 
     fileArray.forEach(file => {
       if (file.type.startsWith('image/')) {
         const reader = new FileReader();
         reader.onloadend = () => {
           const dataUri = reader.result as string;
-          dataUris.push(dataUri);
           newPreviews.push(dataUri);
           processedFiles++;
 
           if (processedFiles === fileArray.length) {
-            setSelectedImages(newPreviews);
+            setSelectedImages(prevImages => [...prevImages, ...newPreviews]);
           }
         };
         reader.readAsDataURL(file);
       } else {
         processedFiles++;
          if (processedFiles === fileArray.length) {
-            setSelectedImages(newPreviews);
+            setSelectedImages(prevImages => [...prevImages, ...newPreviews]);
           }
       }
     });
@@ -98,7 +94,7 @@ export function ImageUploadCard({ onAnalyze, isAnalyzing, onClear, hasImages }: 
       handleFiles(e.dataTransfer.files);
       e.dataTransfer.clearData();
     }
-  }, [onClear]);
+  }, [handleFiles]);
 
   const handleClear = () => {
     setSelectedImages([]);
@@ -119,37 +115,37 @@ export function ImageUploadCard({ onAnalyze, isAnalyzing, onClear, hasImages }: 
         <CardDescription>Select or drag and drop multiple images (up to {MAX_FILES}). The AI will analyze the entire series.</CardDescription>
       </CardHeader>
       <CardContent>
-        {selectedImages.length === 0 ? (
-          <div
-            className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-200 ${
-              isDragging ? 'border-primary bg-accent' : 'border-border'
-            }`}
-            onDragEnter={onDragEnter}
-            onDragLeave={onDragLeave}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
-          >
-            <Input
-              id="file-upload"
-              type="file"
-              className="sr-only"
-              accept="image/png, image/jpeg, image/dicom"
-              onChange={(e) => handleFiles(e.target.files)}
-              disabled={isAnalyzing}
-              multiple
-            />
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <div className="flex flex-col items-center justify-center space-y-4">
-                <FileUp className="h-12 w-12 text-muted-foreground" />
-                <p className="text-muted-foreground">
-                  <span className="font-semibold text-primary">Click to upload</span> or drag and drop
-                </p>
-                <p className="text-xs text-muted-foreground">Supports X-rays, CT scans, MRIs, and ultrasounds</p>
-              </div>
-            </label>
-          </div>
-        ) : (
-          <div className="space-y-4">
+        <div
+          className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-200 ${
+            isDragging ? 'border-primary bg-accent' : 'border-border'
+          }`}
+          onDragEnter={onDragEnter}
+          onDragLeave={onDragLeave}
+          onDragOver={onDragOver}
+          onDrop={onDrop}
+        >
+          <Input
+            id="file-upload"
+            type="file"
+            className="sr-only"
+            accept="image/png, image/jpeg, image/dicom"
+            onChange={(e) => handleFiles(e.target.files)}
+            disabled={isAnalyzing}
+            multiple
+          />
+          <label htmlFor="file-upload" className="cursor-pointer">
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <FileUp className="h-12 w-12 text-muted-foreground" />
+              <p className="text-muted-foreground">
+                <span className="font-semibold text-primary">Click to upload</span> or drag and drop
+              </p>
+              <p className="text-xs text-muted-foreground">Supports X-rays, CT scans, MRIs, and ultrasounds</p>
+            </div>
+          </label>
+        </div>
+
+        {selectedImages.length > 0 && (
+          <div className="space-y-4 mt-4">
             <div className="flex items-center mb-4">
                  <div className="flex items-center space-x-2 text-green-600">
                     <CheckCircle className="h-5 w-5"/>

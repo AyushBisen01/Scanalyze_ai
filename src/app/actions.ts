@@ -81,8 +81,8 @@ export async function getConversationalResponse(
 ): Promise<{ success: true, data: string } | { success: false, error: string }> {
   try {
     const response = await ai.generate({
-      prompt: `You are an intelligent medical assistant. A radiologist has a question about some findings.
-      Provide a concise, helpful, and professional response based on the context. Do not repeat the context or the question in your answer.
+      prompt: `You are an expert radiologist with years of experience interpreting medical scans. You are speaking with another healthcare professional who has questions about the analysis.
+      Provide clear, concise, and clinically relevant answers based on the provided context. Use professional medical terminology where appropriate. Do not repeat the context or the question in your answer.
       
       Context: "${context}"
       
@@ -101,7 +101,8 @@ export async function correlateSymptomsAction(
   try {
     const result = await correlateSymptoms(input);
     return { success: true, data: result };
-  } catch (error) {
+  } catch (error)
+{
     console.error('Error in correlateSymptomsAction:', error);
     return { success: false, error: 'An error occurred during symptom correlation.' };
   }

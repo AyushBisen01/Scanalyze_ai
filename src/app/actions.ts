@@ -9,6 +9,8 @@ import { explainDiagnosis } from '@/ai/flows/explain-diagnosis';
 import type { ExplainDiagnosisInput, ExplainDiagnosisOutput } from '@/ai/flows/explain-diagnosis';
 import { correlateSymptoms } from '@/ai/flows/correlate-symptoms';
 import type { CorrelateSymptomsInput, CorrelateSymptomsOutput } from '@/ai/flows/correlate-symptoms';
+import { generateBasicReport, type GenerateBasicReportOutput } from '@/ai/flows/generate-basic-report';
+
 
 export type AnalysisResult = {
   findings: string;
@@ -34,6 +36,18 @@ export async function performAnalysisAction(
   } catch (error) {
     console.error('Error in performAnalysisAction:', error);
     return { success: false, error: 'An error occurred during image analysis.' };
+  }
+}
+
+export async function generateBasicReportAction(
+  analysisResult: AnalysisResult
+): Promise<{ success: true, data: GenerateBasicReportOutput } | { success: false, error: string }> {
+  try {
+    const report = await generateBasicReport(analysisResult);
+    return { success: true, data: report };
+  } catch (error) {
+    console.error('Error in generateBasicReportAction:', error);
+    return { success: false, error: 'An error occurred while generating the basic report.' };
   }
 }
 

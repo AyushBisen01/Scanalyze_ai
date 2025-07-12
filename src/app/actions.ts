@@ -9,13 +9,26 @@ import { explainDiagnosis } from '@/ai/flows/explain-diagnosis';
 import type { ExplainDiagnosisInput, ExplainDiagnosisOutput } from '@/ai/flows/explain-diagnosis';
 import { correlateSymptoms } from '@/ai/flows/correlate-symptoms';
 import type { CorrelateSymptomsInput, CorrelateSymptomsOutput } from '@/ai/flows/correlate-symptoms';
-import { generateBasicReport, type GenerateBasicReportOutput } from '@/ai/flows/generate-basic-report';
-
+import { generateBasicReport } from '@/ai/flows/generate-basic-report';
+import { z } from 'zod';
 
 export type AnalysisResult = {
   findings: string;
   anomalies: string;
 };
+
+// Moved from generate-basic-report.ts to resolve 'use server' export error
+export const GenerateBasicReportInputSchema = z.object({
+  findings: z.string().describe('The key findings from the medical image analysis.'),
+  anomalies: z.string().describe('The anomalies detected in the medical image.'),
+});
+export type GenerateBasicReportInput = z.infer<typeof GenerateBasicReportInputSchema>;
+
+export const GenerateBasicReportOutputSchema = z.object({
+  markdownReport: z.string().describe('The basic diagnostic report formatted in Markdown.'),
+});
+export type GenerateBasicReportOutput = z.infer<typeof GenerateBasicReportOutputSchema>;
+
 
 export async function performAnalysisAction(
   imageDataUri: string

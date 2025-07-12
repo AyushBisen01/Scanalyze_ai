@@ -4,23 +4,12 @@
  * @fileOverview Generates a basic, image-only diagnostic report.
  *
  * - generateBasicReport - A function that generates the basic report.
- * - GenerateBasicReportInput - The input type for the generateBasicReport function.
- * - GenerateBasicReportOutput - The return type for the generateBasicReport function.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { GenerateBasicReportInputSchema, GenerateBasicReportOutputSchema, type GenerateBasicReportInput, type GenerateBasicReportOutput } from '@/app/actions';
 
-export const GenerateBasicReportInputSchema = z.object({
-  findings: z.string().describe('The key findings from the medical image analysis.'),
-  anomalies: z.string().describe('The anomalies detected in the medical image.'),
-});
-export type GenerateBasicReportInput = z.infer<typeof GenerateBasicReportInputSchema>;
-
-const GenerateBasicReportOutputSchema = z.object({
-  markdownReport: z.string().describe('The basic diagnostic report formatted in Markdown.'),
-});
-export type GenerateBasicReportOutput = z.infer<typeof GenerateBasicReportOutputSchema>;
 
 export async function generateBasicReport(
   input: GenerateBasicReportInput

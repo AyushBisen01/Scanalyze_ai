@@ -64,7 +64,7 @@ export async function getConversationalResponse(
   question: string
 ): Promise<{ success: true; data: string } | { success: false; error: string }> {
   try {
-    const { output } = await ai.generate({
+    const response = await ai.generate({
       prompt: `You are an intelligent medical assistant. A radiologist has a question about some findings.
       Provide a concise, helpful, and professional response based on the context. Do not repeat the context or the question in your answer.
       
@@ -72,7 +72,7 @@ export async function getConversationalResponse(
       
       Question: "${question}"`,
     });
-    return { success: true, data: output as string };
+    return { success: true, data: response.text };
   } catch (error) {
     console.error('Error in getConversationalResponse:', error);
     return { success: false, error: 'An error occurred while getting a response.' };

@@ -17,7 +17,7 @@ export type AnalysisResult = {
 
 export async function performAnalysisAction(
   imageDataUri: string
-): Promise<{ success: true; data: AnalysisResult } | { success: false; error: string }> {
+): Promise<{ success: true, data: AnalysisResult } | { success: false, error: string }> {
   try {
     const [analysis, anomaliesResult] = await Promise.all([
       analyzeMedicalImage({ photoDataUri: imageDataUri }),
@@ -33,13 +33,13 @@ export async function performAnalysisAction(
     };
   } catch (error) {
     console.error('Error in performAnalysisAction:', error);
-    return { success: false; error: 'An error occurred during image analysis.' };
+    return { success: false, error: 'An error occurred during image analysis.' };
   }
 }
 
 export async function generateReportAction(
   input: GenerateDetailedReportInput
-): Promise<{ success: true; data: GenerateDetailedReportOutput } | { success: false; error: string }> {
+): Promise<{ success: true, data: GenerateDetailedReportOutput } | { success: false, error: string }> {
   try {
     const report = await generateDetailedReport(input);
     return { success: true, data: report };
@@ -51,7 +51,7 @@ export async function generateReportAction(
 
 export async function explainDiagnosisAction(
   input: ExplainDiagnosisInput
-): Promise<{ success: true; data: ExplainDiagnosisOutput } | { success: false; error: string }> {
+): Promise<{ success: true, data: ExplainDiagnosisOutput } | { success: false, error: string }> {
   try {
     const explanation = await explainDiagnosis(input);
     return { success: true, data: explanation };
@@ -64,7 +64,7 @@ export async function explainDiagnosisAction(
 export async function getConversationalResponse(
   context: string,
   question: string
-): Promise<{ success: true; data: string } | { success: false; error: string }> {
+): Promise<{ success: true, data: string } | { success: false, error: string }> {
   try {
     const response = await ai.generate({
       prompt: `You are an intelligent medical assistant. A radiologist has a question about some findings.
@@ -83,7 +83,7 @@ export async function getConversationalResponse(
 
 export async function correlateSymptomsAction(
   input: CorrelateSymptomsInput
-): Promise<{ success: true; data: CorrelateSymptomsOutput } | { success: false; error: string }> {
+): Promise<{ success: true, data: CorrelateSymptomsOutput } | { success: false, error: string }> {
   try {
     const result = await correlateSymptoms(input);
     return { success: true, data: result };

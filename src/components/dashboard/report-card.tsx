@@ -16,36 +16,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import ReactMarkdown from 'react-markdown';
 import type { ExplanationMap } from './explanation-card';
 
-// Function to convert Markdown to styled HTML for the PDF
-const markdownToHtml = (markdown: string) => {
-  let html = markdown
-    // Headings
-    .replace(/^### (.*$)/gim, '<h3 style="font-size: 16px; font-weight: 600; margin-top: 1em; margin-bottom: 0.5em;">$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2 style="font-size: 18px; font-weight: 600; margin-top: 1.5em; margin-bottom: 0.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em;">$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1 style="font-size: 22px; font-weight: 700; margin-bottom: 1em;">$1</h1>')
-    // Bold
-    .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
-    // List items
-    .replace(/^\* (.*$)/gim, '<li style="margin-left: 20px; margin-bottom: 0.5em;">$1</li>')
-    // HR
-    .replace(/---/g, '<hr style="border: none; border-top: 1px solid #ccc; margin: 1.5em 0;" />')
-    // Blockquotes (for disclaimer)
-    .replace(/^> (.*$)/gim, '<blockquote style="border-left: 4px solid #ccc; padding-left: 1em; margin-left: 0; font-style: italic;">$1</blockquote>')
-    // Convert newlines to breaks
-    .replace(/\n/g, '<br />');
-
-  // Wrap lists
-  html = html.replace(/<li/g, '<ul><li').replace(/<\/li><br \/><ul>/g, '</li></ul><br /><ul>');
-  html = html.replace(/<li(.*?)/g, '<ul><li$1');
-  const listEndRegex = /(<\/li>)<br \/>(?!<li)/g;
-  html = html.replace(listEndRegex, '$1</ul>');
-
-  // Cleanup redundant list tags
-  html = html.replace(/<\/ul><br \/><ul>/g, '');
-  
-  return html;
-};
-
 // Function to extract a filename from the report
 const getPdfFilename = (markdown: string, patientName?: string): string => {
     // Try to find the first major finding as the title
@@ -124,110 +94,127 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
 
     const imageUrisToProcess = (imageDataUris || []).filter(uri => uri.startsWith('data:image'));
 
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const margin = 15;
+    
+    // Create a hidden element to render HTML for PDF conversion
     const reportElement = document.createElement('div');
     reportElement.style.position = 'absolute';
     reportElement.style.left = '-9999px';
-    reportElement.style.width = '800px';
-    reportElement.style.padding = '40px';
+    reportElement.style.width = `${(pdfWidth - margin * 2) * 4}px`; // Approx width in pixels
     reportElement.style.fontFamily = 'Arial, sans-serif';
     reportElement.style.color = '#333';
     reportElement.style.background = '#fff';
-
-    const patientInfoHtml = `
-      <div style="margin-bottom: 20px;">
-        <h2 style="font-size: 18px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px;">Patient Information</h2>
-        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-          <tbody>
-            <tr><td style="padding: 5px 8px; font-weight: bold; width: 15%;">Patient Name:</td><td style="padding: 5px 8px; width: 35%;">${patientInfo.patientName || 'N/A'}</td><td style="padding: 5px 8px; font-weight: bold; width: 15%;">Hospital / Unit:</td><td style="padding: 5px 8px; width: 35%;">${patientInfo.hospital || 'N/A'}</td></tr>
-            <tr><td style="padding: 5px 8px; font-weight: bold;">Patient ID:</td><td style="padding: 5px 8px;">${patientInfo.patientId || 'N/A'}</td><td style="padding: 5px 8px; font-weight: bold;">Scan Date:</td><td style="padding: 5px 8px;">${patientInfo.scanDate || 'N/A'}</td></tr>
-            <tr><td style="padding: 5px 8px; font-weight: bold;">Date of Birth:</td><td style="padding: 5px 8px;">${patientInfo.dateOfBirth || 'N/A'}</td><td style="padding: 5px 8px; font-weight: bold;">Modality:</td><td style="padding: 5px 8px;">${patientInfo.modality || 'N/A'}</td></tr>
-            <tr><td style="padding: 5px 8px; font-weight: bold;">Gender:</td><td style="padding: 5px 8px;">${patientInfo.gender || 'N/A'}</td><td style="padding: 5px 8px; font-weight: bold;">Referring Physician:</td><td style="padding: 5px 8px;">${patientInfo.referringPhysician || 'N/A'}</td></tr>
-          </tbody>
-        </table>
-      </div>
-       <div style="margin-bottom: 20px;">
-         <h2 style="font-size: 18px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px;">Clinical History</h2>
-         <p style="font-size: 14px; padding: 5px 8px;">${patientInfo.clinicalHistory || 'Not Provided'}</p>
-       </div>
-    `;
-
-    let imageSectionHtml = '';
-    if (imageUrisToProcess.length > 0) {
-      imageSectionHtml += `<div style="margin-bottom: 20px; page-break-before: auto; page-break-after: always;">
-        <h2 style="font-size: 18px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 15px;">Key Images</h2>`;
-      
-      imageUrisToProcess.forEach((uri, index) => {
-        const explanationImageUri = explanations[uri]?.explanation?.explanationImage;
-        imageSectionHtml += `
-          <div style="display: flex; justify-content: space-around; align-items: flex-start; gap: 20px; margin-bottom: 25px; page-break-inside: avoid; text-align: center;">
-            <div style="width: 48%;">
-              <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">Original Scan (File ${index + 1})</h3>
-              <img src="${uri}" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;" />
-            </div>
-            ${explanationImageUri ? `
-              <div style="width: 48%;">
-                <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">AI Explanation</h3>
-                <img src="${explanationImageUri}" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;" />
-              </div>
-            ` : `
-              <div style="width: 48%; display: flex; align-items: center; justify-content: center; border: 1px dashed #ccc; border-radius: 4px; min-height: 150px;">
-                <p style="color: #888; font-size: 13px;">No AI explanation generated for this image.</p>
-              </div>
-            `}
-          </div>
-        `;
-      });
-      imageSectionHtml += `</div>`;
-    }
-
-    const styledReportHtml = markdownToHtml(detailedReportMarkdown);
-    reportElement.innerHTML = `
-      <div id="pdf-content">
-        <h1 style="font-size: 24px; font-weight: 700; text-align: center; margin-bottom: 20px; color: #6699CC;">RadioAgent Diagnostic Report</h1>
-        ${patientInfoHtml}
-        ${imageSectionHtml}
-        <hr style="border: none; border-top: 1px solid #ccc; margin: 1.5em 0;" />
-        <div style="page-break-before: auto;">
-          ${styledReportHtml}
-        </div>
-      </div>
-    `;
-    
     document.body.appendChild(reportElement);
 
     try {
-        const content = document.getElementById('pdf-content');
-        if (!content) {
-            throw new Error('PDF content element not found');
-        }
+        // --- Header ---
+        const headerHtml = `<div style="padding: 10px; text-align: center;">
+                              <h1 style="font-size: 24px; font-weight: 700; color: #6699CC; margin: 0;">RadioAgent Diagnostic Report</h1>
+                            </div>`;
+        reportElement.innerHTML = headerHtml;
+        const headerCanvas = await html2canvas(reportElement, {scale: 2, useCORS: true});
+        const headerImgData = headerCanvas.toDataURL('image/png');
+        pdf.addImage(headerImgData, 'PNG', 0, 0, pdfWidth, headerCanvas.height / (headerCanvas.width / pdfWidth));
 
-        const canvas = await html2canvas(content, { scale: 2, useCORS: true });
-        const imgData = canvas.toDataURL('image/png');
+        // --- Patient Info ---
+        const patientInfoHtml = `
+            <div style="padding: ${margin}px;">
+                <h2 style="font-size: 18px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px;">Patient Information</h2>
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                    <tbody>
+                        <tr><td style="padding: 5px 8px; font-weight: bold; width: 15%;">Patient Name:</td><td style="padding: 5px 8px; width: 35%;">${patientInfo.patientName || 'N/A'}</td><td style="padding: 5px 8px; font-weight: bold; width: 15%;">Hospital / Unit:</td><td style="padding: 5px 8px; width: 35%;">${patientInfo.hospital || 'N/A'}</td></tr>
+                        <tr><td style="padding: 5px 8px; font-weight: bold;">Patient ID:</td><td style="padding: 5px 8px;">${patientInfo.patientId || 'N/A'}</td><td style="padding: 5px 8px; font-weight: bold;">Scan Date:</td><td style="padding: 5px 8px;">${patientInfo.scanDate || 'N/A'}</td></tr>
+                        <tr><td style="padding: 5px 8px; font-weight: bold;">Date of Birth:</td><td style="padding: 5px 8px;">${patientInfo.dateOfBirth || 'N/A'}</td><td style="padding: 5px 8px; font-weight: bold;">Modality:</td><td style="padding: 5px 8px;">${patientInfo.modality || 'N/A'}</td></tr>
+                        <tr><td style="padding: 5px 8px; font-weight: bold;">Gender:</td><td style="padding: 5px 8px;">${patientInfo.gender || 'N/A'}</td><td style="padding: 5px 8px; font-weight: bold;">Referring Physician:</td><td style="padding: 5px 8px;">${patientInfo.referringPhysician || 'N/A'}</td></tr>
+                    </tbody>
+                </table>
+                <h2 style="font-size: 18px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px; margin-top: 15px;">Clinical History</h2>
+                <p style="font-size: 14px; padding: 5px 8px;">${patientInfo.clinicalHistory || 'Not Provided'}</p>
+            </div>
+        `;
+        reportElement.innerHTML = patientInfoHtml;
+        await pdf.html(reportElement, {
+            x: 0,
+            y: 25,
+            width: pdfWidth,
+            windowWidth: reportElement.clientWidth,
+            autoPaging: 'text',
+        });
         
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        
-        const imgWidth = canvas.width;
-        const imgHeight = canvas.height;
-        const ratio = imgWidth / pdfWidth;
-        const pageHeight = pdfHeight * ratio;
-        let heightLeft = imgHeight;
-        
-        let position = 0;
-
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight / ratio);
-        heightLeft -= pageHeight;
-
-        while (heightLeft > 0) {
-            position = heightLeft - imgHeight;
+        // --- Images Section ---
+        if (imageUrisToProcess.length > 0) {
             pdf.addPage();
-            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight / ratio);
-            heightLeft -= pageHeight;
+            const imagesHtml = `<div style="padding: ${margin}px;"><h2 style="font-size: 18px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 15px;">Key Images</h2></div>`;
+            reportElement.innerHTML = imagesHtml;
+            await pdf.html(reportElement, {
+                x: 0,
+                y: margin,
+                width: pdfWidth,
+                windowWidth: reportElement.clientWidth,
+            });
+
+            for (const [index, uri] of imageUrisToProcess.entries()) {
+                const explanationImageUri = explanations[uri]?.explanation?.explanationImage;
+                const imagePairHtml = `
+                    <div style="padding: 0 ${margin}px; margin-bottom: 25px; page-break-inside: avoid;">
+                        <div style="display: flex; justify-content: space-around; align-items: flex-start; gap: 20px; text-align: center;">
+                            <div style="width: 48%;">
+                                <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">Original Scan (File ${index + 1})</h3>
+                                <img src="${uri}" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;" />
+                            </div>
+                            ${explanationImageUri ? `
+                                <div style="width: 48%;">
+                                    <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">AI Explanation</h3>
+                                    <img src="${explanationImageUri}" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;" />
+                                </div>
+                            ` : `
+                                <div style="width: 48%; display: flex; align-items: center; justify-content: center; border: 1px dashed #ccc; border-radius: 4px; min-height: 150px;">
+                                    <p style="color: #888; font-size: 13px;">No AI explanation generated.</p>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `;
+                reportElement.innerHTML = imagePairHtml;
+                await pdf.html(reportElement, {
+                    x: 0,
+                    y: pdf.internal.pageSize.getCurrentPageInfo().pageNumber === 1 ? margin : pdf.y,
+                    width: pdfWidth,
+                    windowWidth: reportElement.clientWidth,
+                    autoPaging: 'text',
+                    margin: [0, margin, 0, margin]
+                });
+            }
         }
 
+        // --- Detailed Report Section ---
+        pdf.addPage();
+        const markdownHtml = detailedReportMarkdown
+            .replace(/^### (.*$)/gim, '<h3 style="font-size: 16px; font-weight: 600; margin-top: 1em; margin-bottom: 0.5em;">$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2 style="font-size: 18px; font-weight: 600; margin-top: 1.5em; margin-bottom: 0.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em;">$1</h2>')
+            .replace(/^# (.*$)/gim, '') // Remove main H1 as we have a PDF header
+            .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+            .replace(/^\* (.*$)/gim, '<p style="margin-left: 20px; margin-bottom: 0.5em;">&bull; $1</p>')
+            .replace(/---/g, '<hr style="border: none; border-top: 1px solid #ccc; margin: 1.5em 0;" />')
+            .replace(/^> (.*$)/gim, '<blockquote style="border-left: 4px solid #ccc; padding-left: 1em; margin-left: 0; font-style: italic;">$1</blockquote>')
+            .replace(/\n/g, '<br />');
+
+        reportElement.innerHTML = `<div style="padding: ${margin}px; font-size: 14px;">${markdownHtml}</div>`;
+        
+        await pdf.html(reportElement, {
+            x: 0,
+            y: margin,
+            width: pdfWidth,
+            windowWidth: reportElement.clientWidth,
+            autoPaging: 'text',
+        });
+        
         const filename = getPdfFilename(detailedReportMarkdown, patientInfo.patientName);
         pdf.save(filename);
+
     } catch (error) {
         console.error("Failed to generate PDF:", error);
         toast({

@@ -20,55 +20,125 @@ const prompt = ai.definePrompt({
   name: 'generateBasicReportPrompt',
   input: {schema: GenerateBasicReportInputSchema},
   output: {schema: GenerateBasicReportOutputSchema},
-  prompt: `You are an expert radiologist AI. Your task is to create a clear, structured, image-only diagnostic report in Markdown format based on the findings provided. Follow the formatting instructions precisely.
+  prompt: `You are an expert radiologist and an AI-powered clinical decision support system. Your task is to generate a comprehensive, structured diagnostic report based on the provided findings.
+The report MUST be detailed, clinically relevant, and formatted precisely as the template below. Analyze the findings to populate every section.
 
-**Analyze the provided findings:**
+**Analyze the provided information:**
 - Key Findings: {{{findings}}}
 - Detected Anomalies: {{{anomalies}}}
 
-**MANDATORY REPORT STRUCTURE - Populate all sections of this template based *only* on the provided findings. Use Title Case for all headers.**
+**MANDATORY REPORT STRUCTURE - Populate all sections of this template:**
 
-# 🧠 RadioAgent Image-Based Diagnostic Report
-*Scan Type: Chest X-Ray (PA View) | AI Model: RadioAgent v1.3*
-***
+## 📌 **Findings Summary – Structured Radiology Format (Enhanced for Clinical Use)**
 
-### 📌 Findings Summary
-[Analyze the findings and create a perfectly formatted Markdown table with the following columns: 'Region / Structure', 'Abnormality Detected', 'Confidence (%)', 'Severity', 'Notes'. Combine related findings to avoid redundancy (e.g., use 'Left Lung' instead of multiple sub-regions unless necessary). Populate this table with the most critical findings. Ensure notes are concise and clinically relevant.]
+---
 
-***
+### 🫁 **Left Lung**
 
-### 🧠 Explainable AI Output (XAI - Grad-CAM)
-The following regions were most influential in the model’s diagnostic reasoning:
-[Provide a bulleted list summarizing which areas would have the highest activation on a heatmap. Be specific about location and the finding. e.g., "* 🔴 **Left Lung Lower Zone**: High-activation area indicating likely pneumonia."]
+* **Finding:** [Describe the primary finding for this region, e.g., "Airspace consolidation"]
 
-***
+* **Confidence Level:** [Provide a numerical percentage, e.g., "**97.1%**"] ([State High/Medium/Low])
 
-### 📋 Automated Interpretation
-> [Based on your analysis of the findings, provide a concise, natural language summary of the most critical findings. Mention the primary diagnosis, any significant secondary findings, and their clinical relevance.]
+* **Severity Assessment:** [State "Severe", "Moderate", "Mild", or "Normal"]
 
-***
+* **Detailed Notes:**
+[Provide detailed radiological observations for this finding. Be descriptive and technical.]
 
-### 📈 Model Confidence & Performance Metrics
-[Create a perfectly formatted Markdown table with the following columns: 'Parameter', 'Value'.]
-| Parameter              | Value |
-| ---------------------- | ----- |
-| Overall Confidence     | [Calculate a realistic average confidence based on the findings table]% |
-| [Finding 1] Detection  | [Confidence for Finding 1]% |
-| [Finding 2] Detection  | [Confidence for Finding 2]% |
-| Average False Positive | 1.7%  |
-| Average False Negative | 2.0%  |
+* **Clinical Suggestion:**
+[Suggest a specific clinical action, like recommended medication, tests, or management.]
 
-***
+* **Emerging Disease Alert (Prediction):**
+[Based on patterns, suggest a potential differential diagnosis or future risk. Be specific.]
 
-### 🔍 Recommended AI Actions
-[Provide a bulleted list of 2-3 clear, actionable recommendations based *only* on the findings. Suggestions may include further tests or specialist referrals. Use icons for clarity.]
+---
 
-***
+### 🫁 **Right Lung**
 
-### ⚠️ Disclaimer
-> *This is an AI-generated image-based diagnostic analysis with no clinical context. It must not be used as a standalone diagnosis tool and should be reviewed by a licensed medical professional.*
+* **Finding:** [Describe the primary finding for this region]
 
-Now, generate the complete report by filling in the 'markdownReport' field in the output schema with the fully populated Markdown text. Ensure all Markdown tables are syntactically perfect with no extra pipes or formatting errors.
+* **Confidence Level:** [Provide a numerical percentage] ([State High/Medium/Low])
+
+* **Severity Assessment:** [State "Severe", "Moderate", "Mild", or "Normal"]
+
+* **Detailed Notes:**
+[Provide detailed radiological observations for this finding.]
+
+* **Clinical Suggestion:**
+[Suggest a specific clinical action.]
+
+* **Emerging Disease Alert (Prediction):**
+[Suggest a potential differential diagnosis or future risk.]
+
+---
+
+### ❤️ **Cardiac Silhouette**
+
+* **Finding:** [Describe the finding for the heart]
+
+* **Confidence Level:** [Provide a numerical percentage]
+
+* **Detailed Notes:**
+[Provide detailed radiological observations for this finding.]
+
+* **Clinical Suggestion:**
+[Suggest a specific clinical action.]
+
+---
+
+### 🌬️ **Pleural Region**
+
+* **Finding:** [Describe the finding for the pleura]
+
+* **Confidence Level:** [Provide a numerical percentage]
+
+* **Detailed Notes:**
+[Provide detailed radiological observations for this finding.]
+
+* **Clinical Suggestion:**
+[Suggest a specific clinical action.]
+
+---
+
+### 🦴 **Skeletal Structures**
+
+* **Finding:** [Describe the finding for bones]
+
+* **Confidence Level:** [Provide a numerical percentage]
+
+* **Detailed Notes:**
+[Provide detailed radiological observations for this finding.]
+
+* **Clinical Suggestion:**
+[Suggest a specific clinical action.]
+
+---
+
+### 🫁 **Mediastinum & Trachea**
+
+* **Finding:** [Describe the finding for the mediastinum]
+
+* **Confidence Level:** [Provide a numerical percentage]
+
+* **Detailed Notes:**
+[Provide detailed radiological observations for this finding.]
+
+* **Clinical Suggestion:**
+[Suggest a specific clinical action.]
+
+---
+
+## 🔍 **AI-Driven Clinical Recommendations Summary**
+
+[Provide a numbered list of 3-5 clear, consolidated, actionable recommendations based on the overall findings.]
+
+---
+
+### ⚠️ **Disclaimer**
+
+> *This is an AI-generated diagnostic suggestion and should only be used to assist clinical judgment. Final diagnosis, prescriptions, and interventions should be made by a licensed healthcare provider based on patient history, lab tests, and physical examination.*
+---
+
+Now, generate the complete report by filling in the 'markdownReport' field in the output schema with the fully populated Markdown text. Ensure all sections are filled out comprehensively and accurately based on the findings.
 `,
 });
 

@@ -138,12 +138,12 @@ ${detailedReport.suggestedTreatment}
         )}
       </CardContent>
       {detailedReport && (
-        <CardFooter className="flex-wrap gap-2 no-print">
-          <Button variant="outline" onClick={handleDownloadTxt} className="flex-1 min-w-[150px]">
+        <CardFooter className="flex-wrap gap-2 no-print sm:flex-nowrap">
+          <Button variant="outline" onClick={handleDownloadTxt} className="w-full sm:w-auto flex-1">
             <Download className="mr-2 h-4 w-4" />
             Download .txt
           </Button>
-          <Button variant="outline" onClick={handlePrint} className="flex-1 min-w-[150px]">
+          <Button variant="outline" onClick={handlePrint} className="w-full sm:w-auto flex-1">
             <Printer className="mr-2 h-4 w-4" />
             Print / Save PDF
           </Button>

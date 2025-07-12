@@ -40,20 +40,23 @@ const prompt = ai.definePrompt({
   name: 'generateDetailedReportPrompt',
   input: {schema: GenerateDetailedReportInputSchema},
   output: {schema: GenerateDetailedReportOutputSchema},
-  prompt: `You are an expert radiologist preparing a detailed report for other doctors.
+  prompt: `You are an expert radiologist AI, tasked with creating a comprehensive, doctor-level report. The report must be detailed, well-structured, and clear for other medical professionals.
 
-Based on the image analysis findings and patient history, generate a comprehensive doctor-level report. Explain potential diagnoses with reasoning, suggest treatment methods or further tests, and indicate the criticality of the findings (normal or critical).
+Analyze the provided information:
+- Image: {{media url=imageDataUri}}
+- Key Findings from Initial Analysis: {{{findings}}}
+- Patient History: {{{patientHistory}}}
 
-Image:
-{{media url=imageDataUri}}
+Based on this, generate a report with the following structure:
 
-Findings: {{{findings}}}
-Patient History: {{{patientHistory}}}
+1.  **Detailed Analysis:** Elaborate on the initial findings. Describe the location, size, shape, and characteristics of any identified structures or anomalies in detail. Correlate these findings with the patient's history.
+2.  **Differential Diagnosis:** List the most likely diagnoses, followed by other possibilities. For each, provide a brief rationale explaining how the findings and history support or contradict it.
+3.  **Conclusion:** Summarize the most critical findings and state the most probable diagnosis.
+4.  **Recommendations:** Suggest specific next steps, such as further imaging studies (e.g., contrast-enhanced CT, MRI with specific sequences), laboratory tests, specialist consultations, or potential treatment options.
+5.  **Criticality Assessment:** Based on your analysis, determine if the case is 'normal' or 'critical'.
 
-Report Format:
-Report: [Detailed report here]
-Criticality: [normal or critical]
-Suggested Treatment: [Treatment suggestions or further tests]`,
+Populate the 'report', 'suggestedTreatment', and 'criticality' fields in the output schema with the information from your structured analysis. The 'report' field should contain sections 1-3. The 'suggestedTreatment' field should contain the recommendations from section 4. The 'criticality' field should contain the assessment from section 5.
+`,
 });
 
 const generateDetailedReportFlow = ai.defineFlow(

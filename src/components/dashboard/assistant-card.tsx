@@ -76,7 +76,7 @@ export function AssistantCard({ analysisResult }: AssistantCardProps) {
   ];
 
   return (
-    <Card className="flex flex-col h-[60vh]">
+    <Card className="flex flex-col min-h-[70vh]">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Bot className="w-5 h-5 text-primary" />

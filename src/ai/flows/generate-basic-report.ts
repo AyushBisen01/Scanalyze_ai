@@ -20,12 +20,12 @@ const prompt = ai.definePrompt({
   name: 'generateBasicReportPrompt',
   input: {schema: GenerateBasicReportInputSchema},
   output: {schema: GenerateBasicReportOutputSchema},
-  prompt: `You are an expert radiologist and an AI-powered clinical decision support system. Your task is to generate a comprehensive, structured diagnostic report based on the provided findings from a medical image.
+  prompt: `You are an expert radiologist and an AI-powered clinical decision support system. Your task is to generate a comprehensive, structured diagnostic report based on the provided findings from a medical image or image series.
 
 **Your process must be as follows:**
-1.  **Analyze the provided findings and anomalies** to understand the image content.
-2.  **Identify the primary anatomical region** being examined (e.g., Chest, Brain, Knee, Abdomen, etc.).
-3.  **Generate a structured report** that is clinically appropriate for THAT SPECIFIC anatomical region. Do NOT use a chest/lung template for a brain scan, and vice-versa.
+1.  **Analyze the provided findings and anomalies** to understand the image content. If confidence is high, you MUST state the most likely primary diagnosis (e.g., "Rectal Cancer," "Pneumonia," "Meningioma"). Do not be vague if the evidence is strong.
+2.  **Identify the primary anatomical region** being examined (e.g., Chest, Brain, Pelvis, Knee, Abdomen, etc.).
+3.  **Generate a structured report** that is clinically appropriate for THAT SPECIFIC anatomical region. Do NOT use a chest/lung template for a brain scan, and vice-versa. Tailor the sections to the anatomy.
 4.  The report must be detailed, clinically relevant, and formatted precisely in Markdown using the structure below.
 
 **Analyze the provided information:**
@@ -38,9 +38,9 @@ const prompt = ai.definePrompt({
 
 ---
 
-### **[Anatomical Region 1, e.g., Frontal Lobe or Left Lung]**
+### **[Anatomical Region 1, e.g., Frontal Lobe or Left Lung or Rectum]**
 
-*   **Finding:** [Describe the primary finding for this region. Be specific.]
+*   **Finding:** [Describe the primary finding for this region. Be specific and state the likely diagnosis, e.g., "Large, irregular mass consistent with rectal carcinoma" or "Airspace consolidation consistent with pneumonic infiltrate".]
 *   **Confidence Level:** [Provide a numerical percentage, e.g., "**97.1%**"] ([State High/Medium/Low])
 *   **Severity Assessment:** [State "Severe", "Moderate", "Mild", or "Normal"]
 *   **Detailed Notes:** [Provide detailed radiological observations. Be descriptive and technical, relevant to the anatomy.]
@@ -49,7 +49,7 @@ const prompt = ai.definePrompt({
 
 ---
 
-### **[Anatomical Region 2, e.g., Cerebellum or Cardiac Silhouette]**
+### **[Anatomical Region 2, e.g., Cerebellum or Cardiac Silhouette or Sigmoid Colon]**
 
 *   **Finding:** [Describe the primary finding for this region.]
 *   **Confidence Level:** [Provide a numerical percentage] ([State High/Medium/Low])

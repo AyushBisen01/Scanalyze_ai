@@ -103,12 +103,13 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
     const { default: jsPDF } = await import('jspdf');
     const { default: html2canvas } = await import('html2canvas');
 
-    const originalImageUri = imageDataUris?.[0]; // For now, we take the first image for the report
-    const explanationImageUri = originalImageUri ? explanations[originalImageUri]?.explanation?.explanationImage : null;
+    const imageUrisToProcess = (imageDataUris || []).filter(uri => uri.startsWith('data:image'));
 
     const reportElement = document.createElement('div');
+    reportElement.style.position = 'absolute';
+    reportElement.style.left = '-9999px';
     reportElement.style.width = '800px';
-    reportElement.style.padding = '20px';
+    reportElement.style.padding = '40px';
     reportElement.style.fontFamily = 'Arial, sans-serif';
     reportElement.style.color = '#333';
     reportElement.style.background = '#fff';
@@ -116,79 +117,97 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
     const patientInfoHtml = `
       <div style="margin-bottom: 20px;">
         <h2 style="font-size: 18px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px;">Patient Information</h2>
-        <table style="width: 100%; border-collapse: collapse;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
           <tbody>
-            <tr><td style="padding: 4px; font-weight: bold;">Patient Name:</td><td style="padding: 4px;">${patientInfo.patientName}</td><td style="padding: 4px; font-weight: bold;">Hospital / Unit:</td><td style="padding: 4px;">${patientInfo.hospital}</td></tr>
-            <tr><td style="padding: 4px; font-weight: bold;">Patient ID:</td><td style="padding: 4px;">${patientInfo.patientId}</td><td style="padding: 4px; font-weight: bold;">Scan Date:</td><td style="padding: 4px;">${patientInfo.scanDate}</td></tr>
-            <tr><td style="padding: 4px; font-weight: bold;">Date of Birth:</td><td style="padding: 4px;">${patientInfo.dateOfBirth}</td><td style="padding: 4px; font-weight: bold;">Modality:</td><td style="padding: 4px;">${patientInfo.modality}</td></tr>
-            <tr><td style="padding: 4px; font-weight: bold;">Gender:</td><td style="padding: 4px;">${patientInfo.gender}</td><td style="padding: 4px; font-weight: bold;">Referring Physician:</td><td style="padding: 4px;">${patientInfo.referringPhysician}</td></tr>
+            <tr><td style="padding: 5px 8px; font-weight: bold; width: 15%;">Patient Name:</td><td style="padding: 5px 8px; width: 35%;">${patientInfo.patientName || 'N/A'}</td><td style="padding: 5px 8px; font-weight: bold; width: 15%;">Hospital / Unit:</td><td style="padding: 5px 8px; width: 35%;">${patientInfo.hospital || 'N/A'}</td></tr>
+            <tr><td style="padding: 5px 8px; font-weight: bold;">Patient ID:</td><td style="padding: 5px 8px;">${patientInfo.patientId || 'N/A'}</td><td style="padding: 5px 8px; font-weight: bold;">Scan Date:</td><td style="padding: 5px 8px;">${patientInfo.scanDate || 'N/A'}</td></tr>
+            <tr><td style="padding: 5px 8px; font-weight: bold;">Date of Birth:</td><td style="padding: 5px 8px;">${patientInfo.dateOfBirth || 'N/A'}</td><td style="padding: 5px 8px; font-weight: bold;">Modality:</td><td style="padding: 5px 8px;">${patientInfo.modality || 'N/A'}</td></tr>
+            <tr><td style="padding: 5px 8px; font-weight: bold;">Gender:</td><td style="padding: 5px 8px;">${patientInfo.gender || 'N/A'}</td><td style="padding: 5px 8px; font-weight: bold;">Referring Physician:</td><td style="padding: 5px 8px;">${patientInfo.referringPhysician || 'N/A'}</td></tr>
           </tbody>
         </table>
       </div>
        <div style="margin-bottom: 20px;">
          <h2 style="font-size: 18px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px;">Clinical History</h2>
-         <p>${patientInfo.clinicalHistory || 'Not Provided'}</p>
+         <p style="font-size: 14px; padding: 5px 8px;">${patientInfo.clinicalHistory || 'Not Provided'}</p>
        </div>
     `;
 
-    const imageSectionHtml = `
-      <div style="margin-bottom: 20px; text-align: center;">
-        <h2 style="font-size: 18px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 15px;">Key Images</h2>
-        <div style="display: flex; justify-content: space-around; align-items: flex-start; gap: 20px;">
-          ${originalImageUri ? `
-            <div style="width: 45%;">
-              <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">Original Scan</h3>
-              <img src="${originalImageUri}" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;" />
+    let imageSectionHtml = '';
+    if (imageUrisToProcess.length > 0) {
+      imageSectionHtml += `<div style="margin-bottom: 20px; text-align: center; page-break-before: auto; page-break-after: always;">
+        <h2 style="font-size: 18px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 15px;">Key Images</h2>`;
+      
+      imageUrisToProcess.forEach((uri, index) => {
+        const explanationImageUri = explanations[uri]?.explanation?.explanationImage;
+        imageSectionHtml += `
+          <div style="display: flex; justify-content: space-around; align-items: flex-start; gap: 20px; margin-bottom: 25px; page-break-inside: avoid;">
+            <div style="width: 48%;">
+              <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">Original Scan (File ${index + 1})</h3>
+              <img src="${uri}" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;" />
             </div>
-          ` : ''}
-          ${explanationImageUri ? `
-            <div style="width: 45%;">
-              <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">AI Explanation (Heatmap)</h3>
-              <img src="${explanationImageUri}" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;" />
-            </div>
-          ` : ''}
-        </div>
-        ${!originalImageUri && !explanationImageUri ? '<p>No images available for this report.</p>' : ''}
-      </div>
-    `;
+            ${explanationImageUri ? `
+              <div style="width: 48%;">
+                <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">AI Explanation</h3>
+                <img src="${explanationImageUri}" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;" />
+              </div>
+            ` : `
+              <div style="width: 48%; display: flex; align-items: center; justify-content: center; border: 1px dashed #ccc; border-radius: 4px; min-height: 150px;">
+                <p style="color: #888; font-size: 13px;">No AI explanation generated for this image.</p>
+              </div>
+            `}
+          </div>
+        `;
+      });
+      imageSectionHtml += `</div>`;
+    }
 
     const styledReportHtml = markdownToHtml(detailedReportMarkdown);
     reportElement.innerHTML = `
-      <h1 style="font-size: 24px; font-weight: 700; text-align: center; margin-bottom: 20px; color: #6699CC;">RadioAgent Diagnostic Report</h1>
-      ${patientInfoHtml}
-      ${imageSectionHtml}
-      <hr style="border: none; border-top: 1px solid #ccc; margin: 1.5em 0;" />
-      ${styledReportHtml}
+      <div id="pdf-content">
+        <h1 style="font-size: 24px; font-weight: 700; text-align: center; margin-bottom: 20px; color: #6699CC;">RadioAgent Diagnostic Report</h1>
+        ${patientInfoHtml}
+        ${imageSectionHtml}
+        <hr style="border: none; border-top: 1px solid #ccc; margin: 1.5em 0;" />
+        <div style="page-break-before: auto;">
+          ${styledReportHtml}
+        </div>
+      </div>
     `;
     
     document.body.appendChild(reportElement);
 
     try {
-        const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true });
+        const content = document.getElementById('pdf-content');
+        if (!content) {
+            throw new Error('PDF content element not found');
+        }
+
+        const canvas = await html2canvas(content, { scale: 2, useCORS: true, windowWidth: content.scrollWidth, windowHeight: content.scrollHeight });
         const imgData = canvas.toDataURL('image/png');
         
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
-        const imgProps = pdf.getImageProperties(imgData);
-        const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
-        
-        let heightLeft = imgHeight;
-        let position = 0;
-        const pageMargin = 10;
-        const effectivePdfWidth = pdfWidth - (pageMargin * 2);
-        const effectivePdfHeight = pdfHeight - (pageMargin * 2);
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const ratio = canvasWidth / pdfWidth;
+        const canvasHeightInPdf = canvasHeight / ratio;
 
-        // Add first page
-        pdf.addImage(imgData, 'PNG', pageMargin, pageMargin, effectivePdfWidth, imgHeight * (effectivePdfWidth / imgProps.width));
-        heightLeft -= effectivePdfHeight;
+        let position = 0;
         
-        // Add subsequent pages if content overflows
-        while (heightLeft > 0) {
-            position -= effectivePdfHeight;
-            pdf.addPage();
-            pdf.addImage(imgData, 'PNG', pageMargin, position + pageMargin, effectivePdfWidth, imgHeight * (effectivePdfWidth / imgProps.width));
-            heightLeft -= effectivePdfHeight;
+        while (position < canvasHeightInPdf) {
+            if (position > 0) {
+                pdf.addPage();
+            }
+            // The y-coordinate in the source canvas needs to be in canvas pixels, not PDF mm.
+            const sourceY = position * ratio;
+            // The height of the slice to take from the canvas, in canvas pixels.
+            const sourceHeight = Math.min(canvasHeight - sourceY, pdfHeight * ratio);
+            
+            // Add the image slice to the PDF.
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, canvasHeightInPdf, undefined, 'FAST', sourceY);
+            
+            position += pdfHeight;
         }
 
         pdf.save('RadioAgent_Detailed_Report.pdf');
@@ -200,9 +219,12 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
             description: 'There was an error creating the PDF file.',
         });
     } finally {
-        document.body.removeChild(reportElement);
+        if (reportElement) {
+            document.body.removeChild(reportElement);
+        }
     }
   };
+
 
   const handleGenerateAndDownload = async () => {
     if (!imageDataUris || imageDataUris.length === 0 || !analysisResult) return;

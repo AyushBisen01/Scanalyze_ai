@@ -3,8 +3,6 @@
 import { ai } from '@/ai/genkit';
 import { analyzeMedicalImage } from '@/ai/flows/analyze-medical-image';
 import { detectAnomalies } from '@/ai/flows/detect-anomalies';
-import { generateDetailedReport } from '@/ai/flows/generate-detailed-report';
-import type { GenerateDetailedReportInput, GenerateDetailedReportOutput } from '@/ai/flows/generate-detailed-report';
 import { explainDiagnosis } from '@/ai/flows/explain-diagnosis';
 import type { ExplainDiagnosisInput, ExplainDiagnosisOutput } from '@/ai/flows/explain-diagnosis';
 import { correlateSymptoms } from '@/ai/flows/correlate-symptoms';
@@ -53,18 +51,6 @@ export async function generateBasicReportAction(
   } catch (error) {
     console.error('Error in generateBasicReportAction:', error);
     return { success: false, error: 'An error occurred while generating the basic report.' };
-  }
-}
-
-export async function generateReportAction(
-  input: GenerateDetailedReportInput
-): Promise<{ success: true, data: GenerateDetailedReportOutput } | { success: false, error: string }> {
-  try {
-    const report = await generateDetailedReport(input);
-    return { success: true, data: report };
-  } catch (error) {
-    console.error('Error in generateReportAction:', error);
-    return { success: false, error: 'An error occurred while generating the report.' };
   }
 }
 

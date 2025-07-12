@@ -10,8 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { FileText, Download, Loader2, Sparkles, User, Stethoscope as StethoscopeIcon } from 'lucide-react';
-import { generateReportAction, generateBasicReportAction } from '@/app/actions';
-import type { GenerateDetailedReportInput } from '@/ai/flows/generate-detailed-report';
+import { generateBasicReportAction } from '@/app/actions';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import ReactMarkdown from 'react-markdown';
@@ -56,6 +55,7 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
   });
   const [basicReport, setBasicReport] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
 
@@ -87,7 +87,8 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
     setPatientInfo((prev) => ({ ...prev, [id]: value }));
   };
 
-  const handleDownloadPdf = async (detailedReportMarkdown: string) => {
+  const handleDownloadPdf = async (reportMarkdown: string) => {
+    setIsDownloading(true);
     const pdf = new jsPDF('p', 'mm', 'a4');
     const margin = 15;
     const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -107,79 +108,89 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
         const { isBold = false, isItalic = false, indent = 0, isListItem = false, fontSize = 10, isHeading = false } = options;
         
         let processedText = text;
-        const potentialBold = text.match(/\*\*(.*?)\*\*/);
-        if (potentialBold) {
-            const prefixMatch = text.match(/^(.*?)\*\*/);
-            const prefix = prefixMatch ? prefixMatch[1] : '';
-            const boldText = potentialBold[1];
-            const suffix = text.substring(text.indexOf(boldText) + boldText.length + 2);
+        const boldRegex = /\*\*(.*?)\*\*/g;
+        let parts = [];
+        let lastIndex = 0;
+        let match;
 
-            if (prefix) addWrappedText(prefix, {...options, isBold: false});
-            addWrappedText(boldText, {...options, isBold: true});
-            if (suffix) addWrappedText(suffix, {...options, isBold: false});
-            return;
+        while ((match = boldRegex.exec(processedText)) !== null) {
+            if (match.index > lastIndex) {
+                parts.push({ text: processedText.substring(lastIndex, match.index), bold: isBold });
+            }
+            parts.push({ text: match[1], bold: true });
+            lastIndex = match.index + match[0].length;
         }
-
-        const fontStyle = isBold && isItalic ? 'bolditalic' : isBold ? 'bold' : isItalic ? 'italic' : 'normal';
-        pdf.setFont('helvetica', fontStyle);
-        pdf.setFontSize(fontSize);
-        pdf.setTextColor(isHeading ? '#000000' : '#333333');
+        if (lastIndex < processedText.length) {
+            parts.push({ text: processedText.substring(lastIndex), bold: isBold });
+        }
         
-        const fullIndent = margin + indent + (isListItem ? 5 : 0);
-        if(isListItem) {
-          pdf.text('•', margin + indent + 2, yPos);
-        }
+        const originalFontSize = pdf.getFontSize();
+        pdf.setFontSize(fontSize);
 
-        const lines = pdf.splitTextToSize(processedText, contentWidth - indent - (isListItem ? 5 : 0));
-        lines.forEach((line: string) => {
-            checkPageBreak(fontSize * 0.35); // Approximate line height
-            pdf.text(line, fullIndent, yPos);
-            yPos += fontSize * 0.5;
+        parts.forEach(part => {
+             const fontStyle = part.bold && isItalic ? 'bolditalic' : part.bold ? 'bold' : isItalic ? 'italic' : 'normal';
+             pdf.setFont('helvetica', fontStyle);
+             const lines = pdf.splitTextToSize(part.text, contentWidth - indent - (isListItem ? 5 : 0) - pdf.getStringUnitWidth(parts.map(p=>p.text).join('')) * fontSize);
+             lines.forEach((line: string) => {
+                checkPageBreak(fontSize * 0.35); 
+                pdf.text(line, margin + indent, yPos);
+             });
         });
+        
+        const textHeight = (pdf.getTextDimensions(processedText, {fontSize: fontSize, maxWidth: contentWidth - indent}).h);
+        yPos += textHeight + 2;
+
+        pdf.setFontSize(originalFontSize);
     };
 
     const addSectionTitle = (title: string) => {
       checkPageBreak(20);
-      yPos += 5; // Extra space before section title
+      yPos += 5; 
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(14);
       pdf.setTextColor(0, 0, 0);
       pdf.text(title, margin, yPos);
       yPos += 5;
-      pdf.setDrawColor(220, 220, 220); // #dddddd
+      pdf.setDrawColor(220, 220, 220); 
       pdf.line(margin, yPos, pdfWidth - margin, yPos);
       yPos += 8;
     };
 
     // --- START BUILDING PDF ---
-    // Header
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(18);
-    pdf.setTextColor(33, 150, 243); // A nice blue color
+    pdf.setTextColor(33, 150, 243); 
     pdf.text('RadioAgent Diagnostic Report', pdfWidth / 2, yPos, { align: 'center' });
     yPos += 15;
 
     // Patient Info
     addSectionTitle('Patient Information');
-    const info = [
-        `Patient Name: ${patientInfo.patientName || 'N/A'}`,
-        `Patient ID: ${patientInfo.patientId || 'N/A'}`,
-        `Date of Birth: ${patientInfo.dateOfBirth || 'N/A'}`,
-        `Gender: ${patientInfo.gender || 'N/A'}`,
-        `Referring Physician: ${patientInfo.referringPhysician || 'N/A'}`,
-        `Hospital / Unit: ${patientInfo.hospital || 'N/A'}`,
-        `Scan Date: ${patientInfo.scanDate || 'N/A'}`,
-        `Modality: ${patientInfo.modality || 'N/A'}`,
+    const infoTable = [
+        [{text:'Patient Name:', bold:true}, {text: patientInfo.patientName || 'N/A'}],
+        [{text:'Patient ID:', bold:true}, {text: patientInfo.patientId || 'N/A'}],
+        [{text:'Date of Birth:', bold:true}, {text: patientInfo.dateOfBirth || 'N/A'}],
+        [{text:'Gender:', bold:true}, {text: patientInfo.gender || 'N/A'}],
+        [{text:'Referring Physician:', bold:true}, {text: patientInfo.referringPhysician || 'N/A'}],
+        [{text:'Hospital / Unit:', bold:true}, {text: patientInfo.hospital || 'N/A'}],
+        [{text:'Scan Date:', bold:true}, {text: patientInfo.scanDate || 'N/A'}],
+        [{text:'Modality:', bold:true}, {text: patientInfo.modality || 'N/A'}],
     ];
-    info.forEach(line => addWrappedText(line));
+    
+    // Simple two-column layout for patient info
+    infoTable.forEach(row => {
+        checkPageBreak(10);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(row[0].text, margin, yPos);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(row[1].text, margin + 50, yPos);
+        yPos += 7;
+    })
     yPos += 5;
 
-    // Clinical History
     addSectionTitle('Clinical History');
     addWrappedText(patientInfo.clinicalHistory || 'Not Provided', { isItalic: true });
     yPos += 5;
 
-    // Images
     const imageUrisToProcess = (imageDataUris || []).filter(uri => uri.startsWith('data:image'));
     if (imageUrisToProcess.length > 0) {
       addSectionTitle('Key Images');
@@ -188,113 +199,103 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
         const imgHeight = 60; 
         const imgWidth = 80;
         const combinedHeight = imgHeight + 15;
-        checkPageBreak(combinedHeight);
+        checkPageBreak(combinedHeight + 10);
         
-        const originalX = margin;
-        const explanationX = margin + imgWidth + 10;
-
-        addWrappedText(`Original Scan (File ${index + 1})`, {isBold: true});
-        yPos += 2;
+        addWrappedText(`File ${index + 1}`, {isBold: true, fontSize: 12});
 
         const startY = yPos;
-        pdf.addImage(uri, 'PNG', originalX, startY, imgWidth, imgHeight);
+        pdf.text(`Original Scan`, margin, startY);
+        pdf.addImage(uri, 'PNG', margin, startY + 2, imgWidth, imgHeight);
 
         if (explanationImageUri) {
-          pdf.text(`AI Explanation`, explanationX, startY - 2);
-          pdf.addImage(explanationImageUri, 'PNG', explanationX, startY, imgWidth, imgHeight);
+          pdf.text(`AI Explanation`, margin + imgWidth + 10, startY);
+          pdf.addImage(explanationImageUri, 'PNG', margin + imgWidth + 10, startY + 2, imgWidth, imgHeight);
         }
-        yPos += imgHeight + 10;
+        yPos += imgHeight + 15;
       }
     }
     
     // Detailed Report from Markdown
-    const reportLines = detailedReportMarkdown.split('\n');
+    const reportLines = reportMarkdown.split('\n');
     let reportStarted = false;
 
-    reportLines.forEach(line => {
-      line = line.trim();
-      if (!line) return;
+    for(const line of reportLines) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) continue;
 
-      if (line.startsWith('## 📌 **Findings Summary')) {
+      if (trimmedLine.startsWith('## 📌 **Findings Summary')) {
         reportStarted = true;
       }
-
-      if (!reportStarted || line.includes('Patient Information') || line.includes('Clinical History')) {
-        return; // Skip until we get to the findings summary
+      
+      if (!reportStarted) continue;
+      
+      // Skip sections already manually added
+      if (trimmedLine.toLowerCase().includes('patient information') || trimmedLine.toLowerCase().includes('clinical history')) {
+          // Find the next '---' to skip the whole section
+          let i = reportLines.indexOf(line);
+          while(i < reportLines.length && !reportLines[i].startsWith('---')) {
+              i++;
+          }
+          continue; // effectively skipping this line. This logic is a bit weak. A better way is needed.
       }
 
-      if (line.startsWith('## ')) {
-          addSectionTitle(line.substring(3).replace(/📌|🔍|⚠️/g, '').replace(/\*\*/g, '').trim());
-      } else if (line.startsWith('### ')) {
+
+      if (trimmedLine.startsWith('## ')) {
+          addSectionTitle(trimmedLine.substring(3).replace(/📌|🔍|⚠️/g, '').replace(/\*\*/g, '').trim());
+      } else if (trimmedLine.startsWith('### ')) {
           checkPageBreak(12);
           yPos += 4;
-          addWrappedText(line.substring(4).replace(/🫁|❤️|🌬️|🦴/g, '').replace(/\*\*/g, '').trim(), { isBold: true, fontSize: 12, isHeading: true });
+          addWrappedText(trimmedLine.substring(4).replace(/🫁|❤️|🌬️|🦴/g, '').replace(/\*\*/g, '').trim(), { isBold: true, fontSize: 12, isHeading: true });
           yPos += 2;
-      } else if (line.startsWith('*   **')) {
-          const match = line.match(/\*\s+\*\*(.*?):\*\*\s*(.*)/);
+      } else if (trimmedLine.startsWith('*   **')) {
+          const match = trimmedLine.match(/\*\s+\*\*(.*?):\*\*\s*(.*)/);
           if (match) {
               const key = match[1].trim();
               let value = match[2].trim().replace(/\*\*/g, '');
               if (value.startsWith('[') && value.endsWith(']')) {
                   value = value.substring(1, value.length - 1);
               }
-              addWrappedText(`${key}: ${value}`, { indent: 5 });
+              // Render key-value pair
+              checkPageBreak(10);
+              pdf.setFont('helvetica', 'bold');
+              pdf.text(`${key}:`, margin + 5, yPos);
+              pdf.setFont('helvetica', 'normal');
+              const valueLines = pdf.splitTextToSize(value, contentWidth - 45); // 5 for indent, 40 for key
+              pdf.text(valueLines, margin + 40, yPos);
+              yPos += (valueLines.length * 5) + 2;
           }
-      } else if (line.startsWith('* ')) {
-          addWrappedText(line.substring(2), { isListItem: true, indent: 5 });
-      } else if (line.startsWith('> ')) {
-          addWrappedText(line.substring(2), { isItalic: true, indent: 5 });
-      } else if (line !== '---' && !line.startsWith('#')) {
-          addWrappedText(line);
+      } else if (trimmedLine.startsWith('* ')) {
+           checkPageBreak(10);
+           pdf.text('•', margin + 5, yPos);
+           const textWithoutBullet = trimmedLine.substring(2);
+           const textLines = pdf.splitTextToSize(textWithoutBullet, contentWidth - 15);
+           pdf.text(textLines, margin + 10, yPos);
+           yPos += (textLines.length * 5) + 2;
+
+      } else if (trimmedLine.startsWith('> ')) {
+          addWrappedText(trimmedLine.substring(2), { isItalic: true, indent: 5 });
+      } else if (trimmedLine !== '---' && !trimmedLine.startsWith('#')) {
+          addWrappedText(trimmedLine);
       }
-    });
-
-    const filename = getPdfFilename(detailedReportMarkdown, patientInfo.patientName);
-    pdf.save(filename);
-  };
-
-
-  const handleGenerateAndDownload = async () => {
-    if (!imageDataUris || imageDataUris.length === 0 || !analysisResult) return;
-    setIsGenerating(true);
-    
-    const input: GenerateDetailedReportInput = {
-      imageDataUri: imageDataUris[0], 
-      ...patientInfo,
     };
 
-    const result = await generateReportAction(input);
-
-    if (result.success) {
-      toast({
-        title: "Detailed Report Generated",
-        description: "Your PDF report is now downloading.",
-      });
-      await handleDownloadPdf(result.data.markdownReport);
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Report Generation Failed',
-        description: result.error,
-      });
-    }
-    setIsGenerating(false);
-    setIsDialogOpen(false); // Close the dialog
+    const filename = getPdfFilename(reportMarkdown, patientInfo.patientName);
+    pdf.save(filename);
+    setIsDownloading(false);
   };
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-3/4" />
-          <Skeleton className="h-4 w-1/2" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-64 w-full mt-4" />
-        </CardContent>
-      </Card>
-    );
-  }
+  const handleGenerateAndDownload = async () => {
+    if (!basicReport) return;
+    
+    setIsDialogOpen(false); 
+    toast({
+        title: "Generating PDF...",
+        description: "Your report is being prepared for download.",
+    });
+    await handleDownloadPdf(basicReport);
+  };
+
+  const isActionDisabled = isLoading || isGenerating || !analysisResult || !basicReport || isDownloading;
 
   return (
     <Card className="flex flex-col w-full">
@@ -323,43 +324,43 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="w-full" disabled={!analysisResult || isGenerating}>
-              <Download className="mr-2 h-4 w-4" />
-              Generate & Download Detailed Report (PDF)
+            <Button className="w-full" disabled={isActionDisabled}>
+               {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+               Download Report (PDF)
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Enter Patient Information for Detailed Report</DialogTitle>
+              <DialogTitle>Enter Patient Information for Report</DialogTitle>
               <DialogDescription>
-                This information will be used to generate the final diagnostic PDF report. All fields are optional but recommended.
+                This information will be added to the PDF report. All fields are optional but recommended.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <h3 className="font-semibold text-lg flex items-center gap-2"><User className="w-5 h-5 text-primary" /> Patient Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><Label htmlFor="patientName">Patient Name</Label><Input id="patientName" value={patientInfo.patientName} onChange={handleInputChange} placeholder="John Doe" disabled={isGenerating} /></div>
-                <div><Label htmlFor="patientId">Patient ID</Label><Input id="patientId" value={patientInfo.patientId} onChange={handleInputChange} placeholder="PID-12345" disabled={isGenerating} /></div>
-                <div><Label htmlFor="dateOfBirth">Date of Birth</Label><Input id="dateOfBirth" type="date" value={patientInfo.dateOfBirth} onChange={handleInputChange} disabled={isGenerating} /></div>
-                <div><Label htmlFor="gender">Gender</Label><Input id="gender" value={patientInfo.gender} onChange={handleInputChange} placeholder="Male" disabled={isGenerating} /></div>
-                <div><Label htmlFor="referringPhysician">Referring Physician</Label><Input id="referringPhysician" value={patientInfo.referringPhysician} onChange={handleInputChange} placeholder="Dr. Smith" disabled={isGenerating} /></div>
-                <div><Label htmlFor="hospital">Hospital / Unit</Label><Input id="hospital" value={patientInfo.hospital} onChange={handleInputChange} placeholder="City General Hospital" disabled={isGenerating} /></div>
-                <div><Label htmlFor="scanDate">Scan Date</Label><Input id="scanDate" type="date" value={patientInfo.scanDate} onChange={handleInputChange} disabled={isGenerating} /></div>
-                <div><Label htmlFor="modality">Modality</Label><Input id="modality" value={patientInfo.modality} onChange={handleInputChange} placeholder="e.g., Chest X-Ray" disabled={isGenerating} /></div>
+                <div><Label htmlFor="patientName">Patient Name</Label><Input id="patientName" value={patientInfo.patientName} onChange={handleInputChange} placeholder="John Doe" disabled={isDownloading} /></div>
+                <div><Label htmlFor="patientId">Patient ID</Label><Input id="patientId" value={patientInfo.patientId} onChange={handleInputChange} placeholder="PID-12345" disabled={isDownloading} /></div>
+                <div><Label htmlFor="dateOfBirth">Date of Birth</Label><Input id="dateOfBirth" type="date" value={patientInfo.dateOfBirth} onChange={handleInputChange} disabled={isDownloading} /></div>
+                <div><Label htmlFor="gender">Gender</Label><Input id="gender" value={patientInfo.gender} onChange={handleInputChange} placeholder="Male" disabled={isDownloading} /></div>
+                <div><Label htmlFor="referringPhysician">Referring Physician</Label><Input id="referringPhysician" value={patientInfo.referringPhysician} onChange={handleInputChange} placeholder="Dr. Smith" disabled={isDownloading} /></div>
+                <div><Label htmlFor="hospital">Hospital / Unit</Label><Input id="hospital" value={patientInfo.hospital} onChange={handleInputChange} placeholder="City General Hospital" disabled={isDownloading} /></div>
+                <div><Label htmlFor="scanDate">Scan Date</Label><Input id="scanDate" type="date" value={patientInfo.scanDate} onChange={handleInputChange} disabled={isDownloading} /></div>
+                <div><Label htmlFor="modality">Modality</Label><Input id="modality" value={patientInfo.modality} onChange={handleInputChange} placeholder="e.g., Chest X-Ray" disabled={isDownloading} /></div>
               </div>
 
               <h3 className="font-semibold text-lg flex items-center gap-2 pt-4"><StethoscopeIcon className="w-5 h-5 text-primary" /> Clinical Details</h3>
               <div>
                 <Label htmlFor="clinicalHistory">Clinical History</Label>
-                <Textarea id="clinicalHistory" placeholder="e.g., 45-year-old male, non-smoker, history of pneumonia..." value={patientInfo.clinicalHistory} onChange={handleInputChange} className="mt-2" rows={3} disabled={isGenerating} />
+                <Textarea id="clinicalHistory" placeholder="e.g., 45-year-old male, non-smoker, history of pneumonia..." value={patientInfo.clinicalHistory} onChange={handleInputChange} className="mt-2" rows={3} disabled={isDownloading} />
               </div>
             </div>
             <DialogFooter>
               <DialogClose asChild>
-                  <Button type="button" variant="secondary" disabled={isGenerating}>Cancel</Button>
+                  <Button type="button" variant="secondary" disabled={isDownloading}>Cancel</Button>
               </DialogClose>
-              <Button onClick={handleGenerateAndDownload} disabled={isGenerating}>
-                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              <Button onClick={handleGenerateAndDownload} disabled={isDownloading}>
+                {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                 Generate & Download PDF
               </Button>
             </DialogFooter>

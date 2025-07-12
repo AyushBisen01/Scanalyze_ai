@@ -20,110 +20,47 @@ const prompt = ai.definePrompt({
   name: 'generateBasicReportPrompt',
   input: {schema: GenerateBasicReportInputSchema},
   output: {schema: GenerateBasicReportOutputSchema},
-  prompt: `You are an expert radiologist and an AI-powered clinical decision support system. Your task is to generate a comprehensive, structured diagnostic report based on the provided findings.
-The report MUST be detailed, clinically relevant, and formatted precisely as the template below. Analyze the findings to populate every section.
+  prompt: `You are an expert radiologist and an AI-powered clinical decision support system. Your task is to generate a comprehensive, structured diagnostic report based on the provided findings from a medical image.
+
+**Your process must be as follows:**
+1.  **Analyze the provided findings and anomalies** to understand the image content.
+2.  **Identify the primary anatomical region** being examined (e.g., Chest, Brain, Knee, Abdomen, etc.).
+3.  **Generate a structured report** that is clinically appropriate for THAT SPECIFIC anatomical region. Do NOT use a chest/lung template for a brain scan, and vice-versa.
+4.  The report must be detailed, clinically relevant, and formatted precisely in Markdown using the structure below.
 
 **Analyze the provided information:**
 - Key Findings: {{{findings}}}
 - Detected Anomalies: {{{anomalies}}}
 
-**MANDATORY REPORT STRUCTURE - Populate all sections of this template:**
+**MANDATORY REPORT STRUCTURE - Populate all sections of this template based on the identified anatomy:**
 
-## 📌 **Findings Summary – Structured Radiology Format (Enhanced for Clinical Use)**
-
----
-
-### 🫁 **Left Lung**
-
-* **Finding:** [Describe the primary finding for this region, e.g., "Airspace consolidation"]
-
-* **Confidence Level:** [Provide a numerical percentage, e.g., "**97.1%**"] ([State High/Medium/Low])
-
-* **Severity Assessment:** [State "Severe", "Moderate", "Mild", or "Normal"]
-
-* **Detailed Notes:**
-[Provide detailed radiological observations for this finding. Be descriptive and technical.]
-
-* **Clinical Suggestion:**
-[Suggest a specific clinical action, like recommended medication, tests, or management.]
-
-* **Emerging Disease Alert (Prediction):**
-[Based on patterns, suggest a potential differential diagnosis or future risk. Be specific.]
+## 📌 **Findings Summary – Structured Radiology Format**
 
 ---
 
-### 🫁 **Right Lung**
+### **[Anatomical Region 1, e.g., Frontal Lobe or Left Lung]**
 
-* **Finding:** [Describe the primary finding for this region]
-
-* **Confidence Level:** [Provide a numerical percentage] ([State High/Medium/Low])
-
-* **Severity Assessment:** [State "Severe", "Moderate", "Mild", or "Normal"]
-
-* **Detailed Notes:**
-[Provide detailed radiological observations for this finding.]
-
-* **Clinical Suggestion:**
-[Suggest a specific clinical action.]
-
-* **Emerging Disease Alert (Prediction):**
-[Suggest a potential differential diagnosis or future risk.]
+*   **Finding:** [Describe the primary finding for this region. Be specific.]
+*   **Confidence Level:** [Provide a numerical percentage, e.g., "**97.1%**"] ([State High/Medium/Low])
+*   **Severity Assessment:** [State "Severe", "Moderate", "Mild", or "Normal"]
+*   **Detailed Notes:** [Provide detailed radiological observations. Be descriptive and technical, relevant to the anatomy.]
+*   **Clinical Suggestion:** [Suggest a specific clinical action, like recommended medication, further tests, or management.]
+*   **Emerging Disease Alert (Prediction):** [Based on patterns, suggest a potential differential diagnosis or future risk. Be specific.]
 
 ---
 
-### ❤️ **Cardiac Silhouette**
+### **[Anatomical Region 2, e.g., Cerebellum or Cardiac Silhouette]**
 
-* **Finding:** [Describe the finding for the heart]
-
-* **Confidence Level:** [Provide a numerical percentage]
-
-* **Detailed Notes:**
-[Provide detailed radiological observations for this finding.]
-
-* **Clinical Suggestion:**
-[Suggest a specific clinical action.]
+*   **Finding:** [Describe the primary finding for this region.]
+*   **Confidence Level:** [Provide a numerical percentage] ([State High/Medium/Low])
+*   **Severity Assessment:** [State "Severe", "Moderate", "Mild", or "Normal"]
+*   **Detailed Notes:** [Provide detailed radiological observations.]
+*   **Clinical Suggestion:** [Suggest a specific clinical action.]
+*   **Emerging Disease Alert (Prediction):** [Suggest a potential differential diagnosis or future risk.]
 
 ---
 
-### 🌬️ **Pleural Region**
-
-* **Finding:** [Describe the finding for the pleura]
-
-* **Confidence Level:** [Provide a numerical percentage]
-
-* **Detailed Notes:**
-[Provide detailed radiological observations for this finding.]
-
-* **Clinical Suggestion:**
-[Suggest a specific clinical action.]
-
----
-
-### 🦴 **Skeletal Structures**
-
-* **Finding:** [Describe the finding for bones]
-
-* **Confidence Level:** [Provide a numerical percentage]
-
-* **Detailed Notes:**
-[Provide detailed radiological observations for this finding.]
-
-* **Clinical Suggestion:**
-[Suggest a specific clinical action.]
-
----
-
-### 🫁 **Mediastinum & Trachea**
-
-* **Finding:** [Describe the finding for the mediastinum]
-
-* **Confidence Level:** [Provide a numerical percentage]
-
-* **Detailed Notes:**
-[Provide detailed radiological observations for this finding.]
-
-* **Clinical Suggestion:**
-[Suggest a specific clinical action.]
+*(Add more anatomical region sections as necessary based on the image analysis)*
 
 ---
 
@@ -138,8 +75,7 @@ The report MUST be detailed, clinically relevant, and formatted precisely as the
 > *This is an AI-generated diagnostic suggestion and should only be used to assist clinical judgment. Final diagnosis, prescriptions, and interventions should be made by a licensed healthcare provider based on patient history, lab tests, and physical examination.*
 ---
 
-Now, generate the complete report by filling in the 'markdownReport' field in the output schema with the fully populated Markdown text. Ensure all sections are filled out comprehensively and accurately based on the findings.
-`,
+Now, generate the complete report by filling in the 'markdownReport' field in the output schema with the fully populated Markdown text. Ensure all sections are filled out comprehensively and accurately based on the findings for the correct anatomy.`,
 });
 
 const generateBasicReportFlow = ai.defineFlow(

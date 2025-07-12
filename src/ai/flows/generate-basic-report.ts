@@ -20,35 +20,36 @@ const prompt = ai.definePrompt({
   name: 'generateBasicReportPrompt',
   input: {schema: GenerateBasicReportInputSchema},
   output: {schema: GenerateBasicReportOutputSchema},
-  prompt: `You are an expert radiologist AI. Your task is to create a clear, structured, image-only diagnostic report in Markdown format based on the findings provided. Do not invent patient data.
+  prompt: `You are an expert radiologist AI. Your task is to create a clear, structured, image-only diagnostic report in Markdown format based on the findings provided. Follow the formatting instructions precisely.
 
 **Analyze the provided findings:**
 - Key Findings: {{{findings}}}
 - Detected Anomalies: {{{anomalies}}}
 
-**MANDATORY REPORT STRUCTURE - Populate all sections of this template based *only* on the provided findings:**
+**MANDATORY REPORT STRUCTURE - Populate all sections of this template based *only* on the provided findings. Use Title Case for all headers.**
 
-# 🧠 **RadioAgent Image-Based Diagnostic Report**
+# 🧠 RadioAgent Image-Based Diagnostic Report
+*Scan Type: Chest X-Ray (PA View) | AI Model: RadioAgent v1.3*
+***
 
-### 📌 **Findings Summary**
-[Analyze the findings and create a Markdown table with the following columns: 'Region / Structure', 'Abnormality Detected', 'Confidence (%)', 'Severity', 'Notes'. Populate this table with at least 5-7 key regions inferred from the findings (e.g., Lungs, Heart, Pleura). For each region, describe the finding, provide a realistic confidence score as a number, and a severity ('Normal', 'Mild', 'Moderate', 'Severe', or '-').]
+### 📌 Findings Summary
+[Analyze the findings and create a perfectly formatted Markdown table with the following columns: 'Region / Structure', 'Abnormality Detected', 'Confidence (%)', 'Severity', 'Notes'. Combine related findings to avoid redundancy (e.g., use 'Left Lung' instead of multiple sub-regions unless necessary). Populate this table with the most critical findings. Ensure notes are concise and clinically relevant.]
 
----
+***
 
-### 🧠 **Explainable AI Output (XAI - Grad-CAM)**
-
+### 🧠 Explainable AI Output (XAI - Grad-CAM)
 The following regions were most influential in the model’s diagnostic reasoning:
-[Provide a bulleted list summarizing which areas would have the highest activation on a heatmap based on the severity of the findings. e.g., "* 🔴 **Left Lung Lower Zone**: High-activation area indicating likely pneumonia."]
+[Provide a bulleted list summarizing which areas would have the highest activation on a heatmap. Be specific about location and the finding. e.g., "* 🔴 **Left Lung Lower Zone**: High-activation area indicating likely pneumonia."]
 
----
+***
 
-### 📋 **Automated Interpretation (Natural Language)**
+### 📋 Automated Interpretation
 > [Based on your analysis of the findings, provide a concise, natural language summary of the most critical findings. Mention the primary diagnosis, any significant secondary findings, and their clinical relevance.]
 
----
+***
 
-### 📈 **Model Confidence & Performance Metrics**
-
+### 📈 Model Confidence & Performance Metrics
+[Create a perfectly formatted Markdown table with the following columns: 'Parameter', 'Value'.]
 | Parameter              | Value |
 | ---------------------- | ----- |
 | Overall Confidence     | [Calculate a realistic average confidence based on the findings table]% |
@@ -57,17 +58,17 @@ The following regions were most influential in the model’s diagnostic reasonin
 | Average False Positive | 1.7%  |
 | Average False Negative | 2.0%  |
 
----
+***
 
-### 🔍 **Recommended AI Actions**
-[Provide a bulleted list of 2-3 clear, actionable recommendations based *only* on the findings. Suggestions may include further tests (e.g., CT scan), or specialist referrals.]
+### 🔍 Recommended AI Actions
+[Provide a bulleted list of 2-3 clear, actionable recommendations based *only* on the findings. Suggestions may include further tests or specialist referrals. Use icons for clarity.]
 
----
+***
 
-### ⚠️ **Disclaimer**
+### ⚠️ Disclaimer
 > *This is an AI-generated image-based diagnostic analysis with no clinical context. It must not be used as a standalone diagnosis tool and should be reviewed by a licensed medical professional.*
 
-Now, generate the complete report by filling in the 'markdownReport' field in the output schema with the fully populated Markdown text.
+Now, generate the complete report by filling in the 'markdownReport' field in the output schema with the fully populated Markdown text. Ensure all Markdown tables are syntactically perfect with no extra pipes or formatting errors.
 `,
 });
 

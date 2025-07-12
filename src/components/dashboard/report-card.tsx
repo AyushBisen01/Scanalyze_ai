@@ -122,25 +122,25 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
         const lines = pdf.splitTextToSize(text, contentWidth - indent - (isListItem ? 5 : 0));
         
         lines.forEach((line: string) => {
-           checkPageBreak(fontSize * 0.35); 
+           checkPageBreak(fontSize * 0.35 + 3); 
            pdf.text(line, effectiveIndent, yPos);
-           yPos += (fontSize * 0.35) + 2; // Line height
+           yPos += (fontSize * 0.35) + 3; // Line height - increased spacing
         });
 
-        yPos += 2; // Add a bit more space after each wrapped text block
+        yPos += 2;
     };
 
     const addSectionTitle = (title: string) => {
-      checkPageBreak(20);
-      yPos += 8; 
+      checkPageBreak(25);
+      yPos += 10; 
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(14);
       pdf.setTextColor(0, 0, 0);
       pdf.text(title, margin, yPos);
-      yPos += 6;
+      yPos += 7;
       pdf.setDrawColor(220, 220, 220); 
       pdf.line(margin, yPos, pdfWidth - margin, yPos);
-      yPos += 8;
+      yPos += 10;
     };
 
     // --- START BUILDING PDF ---
@@ -186,7 +186,7 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
         const imgHeight = 60; 
         const imgWidth = 80;
         const combinedHeight = imgHeight + 15;
-        checkPageBreak(combinedHeight + 15);
+        checkPageBreak(combinedHeight + 20);
         
         yPos += 5;
         addWrappedText(`File ${index + 1}`, {isBold: true, fontSize: 12});
@@ -207,15 +207,15 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
     
     // Detailed Report from Markdown
     const reportLines = reportMarkdown.split('\n');
-    let reportStarted = false;
     let skipSection = false;
+    let reportStarted = false;
 
     for(const line of reportLines) {
       const trimmedLine = line.trim();
       if (!trimmedLine) continue;
       
       // Logic to skip Patient Info/History sections from markdown
-      if (trimmedLine.toLowerCase().includes('patient information') || trimmedLine.toLowerCase().includes('clinical history')) {
+       if (trimmedLine.toLowerCase().includes('patient information') || trimmedLine.toLowerCase().includes('clinical history')) {
         skipSection = true;
         continue;
       }
@@ -224,41 +224,55 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
         continue;
       }
       if (skipSection) continue;
-
+      
       if (trimmedLine.startsWith('## 📌 **Findings Summary')) {
         reportStarted = true;
       }
-      
+
       if (!reportStarted) continue;
       
       if (trimmedLine.startsWith('## ')) {
           addSectionTitle(trimmedLine.substring(3).replace(/📌|🔍|⚠️/g, '').replace(/\*\*/g, '').trim());
       } else if (trimmedLine.startsWith('### ')) {
-          checkPageBreak(12);
-          yPos += 6;
+          checkPageBreak(15);
+          yPos += 8;
           addWrappedText(trimmedLine.substring(4).replace(/🫁|❤️|🌬️|🦴/g, '').replace(/\*\*/g, '').trim(), { isBold: true, fontSize: 12, isHeading: true });
-          yPos += 3;
+          yPos += 4;
       } else if (trimmedLine.startsWith('*   **')) {
           const match = trimmedLine.match(/\*\s+\*\*(.*?):\*\*\s*(.*)/);
           if (match) {
               const key = match[1].trim();
               let value = match[2].trim().replace(/\*\*(.*?)\*\*/g, '$1').replace(/\[|\]/g, '');
               
-              checkPageBreak(10);
+              checkPageBreak(12);
               yPos += 4;
               const keyY = yPos;
+              const keyLines = pdf.splitTextToSize(`${key}: `, contentWidth);
               addWrappedText(`${key}: `, { isBold: true, indent: 5 });
               const valueY = yPos;
-              // Reset yPos to start value text on the same line as the key if possible
-              yPos = keyY; 
-              addWrappedText(value, { indent: 40 });
+              
+              const valueIndent = 40;
+              const valueX = margin + valueIndent;
+              
+              const valueLines = pdf.splitTextToSize(value, contentWidth - valueIndent);
+              
+              if (keyLines.length === 1 && valueLines.length === 1) {
+                // If both fit on one line, render value next to key
+                yPos = keyY;
+                pdf.setFont('helvetica', 'normal');
+                pdf.text(value, valueX, yPos);
+                yPos += (10 * 0.35) + 3; // line height
+              } else {
+                // Otherwise, render value below key
+                addWrappedText(value, { indent: 10 });
+              }
           }
       } else if (trimmedLine.startsWith('* ')) {
            const textWithoutBullet = trimmedLine.substring(2).replace(/\*\*(.*?)\*\*/g, '$1');
            addWrappedText(textWithoutBullet, { isListItem: true, indent: 5 });
       } else if (trimmedLine.startsWith('> ')) {
           yPos += 4;
-          addWrappedText(trimmedLine.substring(2), { isItalic: true, indent: 5 });
+          addWrappedText(trimmedLine.substring(2).replace(/\*\*(.*?)\*\*/g, '$1'), { isItalic: true, indent: 5 });
       } else if (trimmedLine !== '---' && !trimmedLine.startsWith('#')) {
           addWrappedText(trimmedLine.replace(/\*\*(.*?)\*\*/g, '$1'));
       }

@@ -91,63 +91,73 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
     const pdf = new jsPDF('p', 'mm', 'a4');
     const margin = 15;
     const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
     const contentWidth = pdfWidth - (margin * 2);
     let yPos = margin;
-    let pageCount = 1;
 
     // --- PDF HELPER FUNCTIONS ---
     const checkPageBreak = (spaceNeeded: number) => {
-        if (yPos + spaceNeeded > pdf.internal.pageSize.getHeight() - margin) {
+        if (yPos + spaceNeeded > pdfHeight - margin) {
             pdf.addPage();
-            pageCount++;
             yPos = margin;
-            addHeader();
         }
     };
+    
+    const addWrappedText = (text: string, options: { isBold?: boolean, isItalic?: boolean, indent?: number, isListItem?: boolean, fontSize?: number, isHeading?: boolean } = {}) => {
+        const { isBold = false, isItalic = false, indent = 0, isListItem = false, fontSize = 10, isHeading = false } = options;
+        
+        let processedText = text;
+        const potentialBold = text.match(/\*\*(.*?)\*\*/);
+        if (potentialBold) {
+            const prefixMatch = text.match(/^(.*?)\*\*/);
+            const prefix = prefixMatch ? prefixMatch[1] : '';
+            const boldText = potentialBold[1];
+            const suffix = text.substring(text.indexOf(boldText) + boldText.length + 2);
 
-    const addHeader = () => {
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(18);
-      pdf.setTextColor(102, 153, 204); // #6699CC
-      pdf.text('RadioAgent Diagnostic Report', pdfWidth / 2, yPos, { align: 'center' });
-      yPos += 10;
+            if (prefix) addWrappedText(prefix, {...options, isBold: false});
+            addWrappedText(boldText, {...options, isBold: true});
+            if (suffix) addWrappedText(suffix, {...options, isBold: false});
+            return;
+        }
+
+        const fontStyle = isBold && isItalic ? 'bolditalic' : isBold ? 'bold' : isItalic ? 'italic' : 'normal';
+        pdf.setFont('helvetica', fontStyle);
+        pdf.setFontSize(fontSize);
+        pdf.setTextColor(isHeading ? '#000000' : '#333333');
+        
+        const fullIndent = margin + indent + (isListItem ? 5 : 0);
+        if(isListItem) {
+          pdf.text('•', margin + indent + 2, yPos);
+        }
+
+        const lines = pdf.splitTextToSize(processedText, contentWidth - indent - (isListItem ? 5 : 0));
+        lines.forEach((line: string) => {
+            checkPageBreak(fontSize * 0.35); // Approximate line height
+            pdf.text(line, fullIndent, yPos);
+            yPos += fontSize * 0.5;
+        });
     };
 
     const addSectionTitle = (title: string) => {
-      checkPageBreak(12);
+      checkPageBreak(20);
+      yPos += 5; // Extra space before section title
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(14);
       pdf.setTextColor(0, 0, 0);
       pdf.text(title, margin, yPos);
       yPos += 5;
-      pdf.setDrawColor(238, 238, 238); // #eee
+      pdf.setDrawColor(220, 220, 220); // #dddddd
       pdf.line(margin, yPos, pdfWidth - margin, yPos);
       yPos += 8;
     };
-    
-    const addWrappedText = (text: string, options: { isBold?: boolean, isItalic?: boolean, indent?: number, isListItem?: boolean } = {}) => {
-        const { isBold = false, isItalic = false, indent = 0, isListItem = false } = options;
-        const fontStyle = isBold && isItalic ? 'bolditalic' : isBold ? 'bold' : isItalic ? 'italic' : 'normal';
-        pdf.setFont('helvetica', fontStyle);
-        pdf.setFontSize(10);
-        pdf.setTextColor(51, 51, 51); // #333
-        
-        const fullIndent = margin + indent + (isListItem ? 5 : 0);
-        let textToWrap = text;
-        if(isListItem) {
-          pdf.text('•', margin + indent + 2, yPos);
-        }
-
-        const lines = pdf.splitTextToSize(textToWrap, contentWidth - indent - (isListItem ? 5 : 0));
-        lines.forEach((line: string) => {
-            checkPageBreak(5);
-            pdf.text(line, fullIndent, yPos);
-            yPos += 5;
-        });
-    };
 
     // --- START BUILDING PDF ---
-    addHeader();
+    // Header
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(18);
+    pdf.setTextColor(33, 150, 243); // A nice blue color
+    pdf.text('RadioAgent Diagnostic Report', pdfWidth / 2, yPos, { align: 'center' });
+    yPos += 15;
 
     // Patient Info
     addSectionTitle('Patient Information');
@@ -166,7 +176,7 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
 
     // Clinical History
     addSectionTitle('Clinical History');
-    addWrappedText(patientInfo.clinicalHistory || 'Not Provided');
+    addWrappedText(patientInfo.clinicalHistory || 'Not Provided', { isItalic: true });
     yPos += 5;
 
     // Images
@@ -177,15 +187,21 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
         const explanationImageUri = explanations[uri]?.explanation?.explanationImage;
         const imgHeight = 60; 
         const imgWidth = 80;
-        checkPageBreak(imgHeight + 15);
+        const combinedHeight = imgHeight + 15;
+        checkPageBreak(combinedHeight);
+        
+        const originalX = margin;
+        const explanationX = margin + imgWidth + 10;
 
         addWrappedText(`Original Scan (File ${index + 1})`, {isBold: true});
         yPos += 2;
-        pdf.addImage(uri, 'PNG', margin, yPos, imgWidth, imgHeight);
+
+        const startY = yPos;
+        pdf.addImage(uri, 'PNG', originalX, startY, imgWidth, imgHeight);
 
         if (explanationImageUri) {
-          addWrappedText(`AI Explanation`, { isBold: true, indent: imgWidth + 10 });
-          pdf.addImage(explanationImageUri, 'PNG', margin + imgWidth + 10, yPos, imgWidth, imgHeight);
+          pdf.text(`AI Explanation`, explanationX, startY - 2);
+          pdf.addImage(explanationImageUri, 'PNG', explanationX, startY, imgWidth, imgHeight);
         }
         yPos += imgHeight + 10;
       }
@@ -193,30 +209,40 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
     
     // Detailed Report from Markdown
     const reportLines = detailedReportMarkdown.split('\n');
+    let reportStarted = false;
 
     reportLines.forEach(line => {
       line = line.trim();
       if (!line) return;
 
+      if (line.startsWith('## 📌 **Findings Summary')) {
+        reportStarted = true;
+      }
+
+      if (!reportStarted || line.includes('Patient Information') || line.includes('Clinical History')) {
+        return; // Skip until we get to the findings summary
+      }
+
       if (line.startsWith('## ')) {
-          addSectionTitle(line.substring(3).replace(/📌|🔍|⚠️/g, '').trim());
+          addSectionTitle(line.substring(3).replace(/📌|🔍|⚠️/g, '').replace(/\*\*/g, '').trim());
       } else if (line.startsWith('### ')) {
-          checkPageBreak(8);
-          addWrappedText(line.substring(4).replace(/🫁|❤️|🌬️|🦴/g, '').trim(), { isBold: true });
+          checkPageBreak(12);
+          yPos += 4;
+          addWrappedText(line.substring(4).replace(/🫁|❤️|🌬️|🦴/g, '').replace(/\*\*/g, '').trim(), { isBold: true, fontSize: 12, isHeading: true });
           yPos += 2;
-      } else if (line.startsWith('*   **')) { // e.g., *   **Finding:** [Description]
+      } else if (line.startsWith('*   **')) {
           const match = line.match(/\*\s+\*\*(.*?):\*\*\s*(.*)/);
           if (match) {
               const key = match[1].trim();
-              let value = match[2].trim();
+              let value = match[2].trim().replace(/\*\*/g, '');
               if (value.startsWith('[') && value.endsWith(']')) {
                   value = value.substring(1, value.length - 1);
               }
               addWrappedText(`${key}: ${value}`, { indent: 5 });
           }
-      } else if (line.startsWith('* ')) { // list item for recommendations
+      } else if (line.startsWith('* ')) {
           addWrappedText(line.substring(2), { isListItem: true, indent: 5 });
-      } else if (line.startsWith('> ')) { // blockquote for disclaimer
+      } else if (line.startsWith('> ')) {
           addWrappedText(line.substring(2), { isItalic: true, indent: 5 });
       } else if (line !== '---' && !line.startsWith('#')) {
           addWrappedText(line);

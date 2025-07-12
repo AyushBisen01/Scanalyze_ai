@@ -181,7 +181,7 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
                 reportElement.innerHTML = imagePairHtml;
                 await pdf.html(reportElement, {
                     x: 0,
-                    y: pdf.internal.pageSize.getCurrentPageInfo().pageNumber === 1 ? margin : pdf.y,
+                    y: pdf.internal.getCurrentPageInfo().pageNumber === 1 ? margin : (pdf as any).y,
                     width: pdfWidth,
                     windowWidth: reportElement.clientWidth,
                     autoPaging: 'text',

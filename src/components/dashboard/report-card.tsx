@@ -96,6 +96,7 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
     const pdfHeight = pdf.internal.pageSize.getHeight();
     const contentWidth = pdfWidth - (margin * 2);
     let yPos = margin;
+    const LINE_HEIGHT_MULTIPLIER = 1.2;
 
     // --- PDF HELPER FUNCTIONS ---
     const checkPageBreak = (spaceNeeded: number) => {
@@ -114,7 +115,7 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
         
         let effectiveIndent = margin + indent;
         if (isListItem) {
-            checkPageBreak(fontSize * 0.35);
+            checkPageBreak(fontSize * 0.35 * LINE_HEIGHT_MULTIPLIER);
             pdf.text('•', effectiveIndent, yPos);
             effectiveIndent += 5;
         }
@@ -122,9 +123,9 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
         const lines = pdf.splitTextToSize(text, contentWidth - indent - (isListItem ? 5 : 0));
         
         lines.forEach((line: string) => {
-           checkPageBreak(fontSize * 0.35 + 3); 
+           checkPageBreak(fontSize * 0.35 * LINE_HEIGHT_MULTIPLIER + 3); 
            pdf.text(line, effectiveIndent, yPos);
-           yPos += (fontSize * 0.35) + 3; // Line height - increased spacing
+           yPos += (fontSize * 0.35 * LINE_HEIGHT_MULTIPLIER) + 3; // Line height - increased spacing
         });
 
         yPos += 2;
@@ -215,7 +216,8 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
       if (!trimmedLine) continue;
       
       // Logic to skip Patient Info/History sections from markdown
-       if (trimmedLine.toLowerCase().includes('patient information') || trimmedLine.toLowerCase().includes('clinical history')) {
+      const lowerTrimmedLine = trimmedLine.toLowerCase();
+       if (lowerTrimmedLine.includes('patient information') || lowerTrimmedLine.includes('clinical history') || lowerTrimmedLine.includes('findings summary')) {
         skipSection = true;
         continue;
       }
@@ -225,11 +227,13 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
       }
       if (skipSection) continue;
       
-      if (trimmedLine.startsWith('## 📌 **Findings Summary')) {
-        reportStarted = true;
+      if (!reportStarted) {
+         if (trimmedLine.startsWith('## ')) {
+             reportStarted = true;
+         } else {
+             continue;
+         }
       }
-
-      if (!reportStarted) continue;
       
       if (trimmedLine.startsWith('## ')) {
           addSectionTitle(trimmedLine.substring(3).replace(/📌|🔍|⚠️/g, '').replace(/\*\*/g, '').trim());
@@ -242,30 +246,36 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
           const match = trimmedLine.match(/\*\s+\*\*(.*?):\*\*\s*(.*)/);
           if (match) {
               const key = match[1].trim();
-              let value = match[2].trim().replace(/\*\*(.*?)\*\*/g, '$1').replace(/\[|\]/g, '');
+              let value = match[2].trim().replace(/\[|\]/g, '');
+              const isBoldValue = /\*\*(.*?)\*\*/.test(value);
+              value = value.replace(/\*\*(.*?)\*\*/g, '$1');
               
               checkPageBreak(12);
               yPos += 4;
-              const keyY = yPos;
-              const keyLines = pdf.splitTextToSize(`${key}: `, contentWidth);
-              addWrappedText(`${key}: `, { isBold: true, indent: 5 });
-              const valueY = yPos;
               
+              const keyY = yPos;
               const valueIndent = 40;
               const valueX = margin + valueIndent;
               
+              const FONT_SIZE = 10;
+              const LINE_HEIGHT = FONT_SIZE * 0.35 * 1.5; // Increased line height
+
+              const keyLines = pdf.splitTextToSize(`${key}: `, valueIndent - 5);
               const valueLines = pdf.splitTextToSize(value, contentWidth - valueIndent);
               
-              if (keyLines.length === 1 && valueLines.length === 1) {
-                // If both fit on one line, render value next to key
-                yPos = keyY;
-                pdf.setFont('helvetica', 'normal');
-                pdf.text(value, valueX, yPos);
-                yPos += (10 * 0.35) + 3; // line height
-              } else {
-                // Otherwise, render value below key
-                addWrappedText(value, { indent: 10 });
-              }
+              // Draw Key (bold)
+              pdf.setFontSize(FONT_SIZE);
+              pdf.setFont('helvetica', 'bold');
+              pdf.text(keyLines, margin, yPos);
+              
+              // Draw Value
+              pdf.setFont('helvetica', isBoldValue ? 'bold' : 'normal');
+              pdf.text(valueLines, valueX, keyY);
+
+              const keyHeight = keyLines.length * LINE_HEIGHT;
+              const valueHeight = valueLines.length * LINE_HEIGHT;
+
+              yPos += Math.max(keyHeight, valueHeight) + 4; // Use the max height of the key or value to increment yPos
           }
       } else if (trimmedLine.startsWith('* ')) {
            const textWithoutBullet = trimmedLine.substring(2).replace(/\*\*(.*?)\*\*/g, '$1');
@@ -291,7 +301,10 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
         title: "Generating PDF...",
         description: "Your report is being prepared for download.",
     });
-    await handleDownloadPdf(basicReport);
+    // Use a small timeout to allow the dialog to close before the heavy PDF work starts
+    setTimeout(() => {
+        handleDownloadPdf(basicReport);
+    }, 100);
   };
 
   const isActionDisabled = isLoading || isGenerating || !analysisResult || !basicReport || isDownloading;

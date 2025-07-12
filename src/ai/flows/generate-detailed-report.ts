@@ -27,7 +27,6 @@ const GenerateDetailedReportInputSchema = z.object({
   scanDate: z.string().optional().default('N/A'),
   modality: z.string().optional().default('N/A'),
   clinicalHistory: z.string().optional().default('Not Provided'),
-  previousScanData: z.string().optional().default('No previous scans available for comparison.'),
 });
 export type GenerateDetailedReportInput = z.infer<typeof GenerateDetailedReportInputSchema>;
 
@@ -46,10 +45,8 @@ const prompt = ai.definePrompt({
   name: 'generateDetailedReportPrompt',
   input: {schema: GenerateDetailedReportInputSchema},
   output: {schema: GenerateDetailedReportOutputSchema},
-  prompt: `You are an expert radiologist AI. Your task is to create a comprehensive, doctor-level diagnostic report in Markdown format.
-Analyze the provided medical image and patient data to populate the following template.
-The report MUST be detailed, well-structured, and clear for other medical professionals.
-Fill in all sections based on your analysis of the image.
+  prompt: `You are an expert radiologist and an AI-powered clinical decision support system. Your task is to generate a comprehensive, structured diagnostic report based on a medical image and patient data.
+The report MUST be detailed, clinically relevant, and formatted precisely as the template below. Analyze the image and patient data to populate every section.
 
 **Analyze the provided information:**
 - Image: {{media url=imageDataUri}}
@@ -62,7 +59,6 @@ Fill in all sections based on your analysis of the image.
 - Scan Date: {{{scanDate}}}
 - Modality: {{{modality}}}
 - Clinical History: {{{clinicalHistory}}}
-- Previous Scan Data: {{{previousScanData}}}
 
 **MANDATORY REPORT STRUCTURE - Populate all sections of this template:**
 
@@ -84,26 +80,116 @@ Fill in all sections based on your analysis of the image.
 ### 📖 **Clinical History**
 > {{{clinicalHistory}}}
 ---
-### 🧠 **AI Analysis Summary (Natural Language)**
-> [Based on your analysis of the image and clinical history, provide a concise, natural language summary of the most critical findings. Mention the primary diagnosis, any significant secondary findings, and their clinical relevance.]
----
-### 🔬 **Detailed AI Findings**
-[Analyze the image and create a Markdown table with the following columns: 'Region / Organ', 'Abnormality Detected', 'Confidence (%)', 'Severity', 'Notes'. Populate this table with at least 5-7 key regions (e.g., Lungs, Heart, Pleura, Ribs, Mediastinum). For each region, describe the finding (even if normal), provide a confidence score as a number, and a severity ('Normal', 'Mild', 'Moderate', 'Severe', or '-').]
----
-### 📅 **Comparison with Previous Scans**
-> [Based on the 'Previous Scan Data' field, compare it with the current findings. Note any new findings, changes in existing conditions, or stability. If no previous data, state "No previous scans available for comparison."]
----
-### 📋 **AI Recommendations**
-[Provide a numbered list of 3-4 clear, actionable recommendations based on the findings. Suggestions may include further tests (e.g., CT scan, biopsy), specialist referrals (e.g., Pulmonologist), or immediate clinical actions.]
----
-### 🧾 **Auto-Generated Structured Report Text (Editable by Radiologist)**
-> [Generate a concise, formal paragraph summarizing the key findings, suitable for direct inclusion in a final radiology report. This should be a technical summary.]
----
-### ⚠️ **Medical Disclaimer**
-> *This report is AI-generated and intended to support, not replace, the diagnosis of a licensed radiologist or clinician. All recommendations must be validated by qualified professionals.*
+## 📌 **Findings Summary – Structured Radiology Format (Enhanced for Clinical Use)**
 
 ---
-Now, generate the complete report by filling in the 'markdownReport' field in the output schema with the fully populated Markdown text.
+
+### 🫁 **Left Lung**
+
+* **Finding:** [Describe the primary finding for this region, e.g., "Airspace consolidation"]
+
+* **Confidence Level:** [Provide a numerical percentage, e.g., "**97.1%**"] ([State High/Medium/Low])
+
+* **Severity Assessment:** [State "Severe", "Moderate", "Mild", or "Normal"]
+
+* **Detailed Notes:**
+[Provide detailed radiological observations for this finding. Be descriptive and technical.]
+
+* **Clinical Suggestion:**
+[Suggest a specific clinical action, like recommended medication, tests, or management.]
+
+* **Emerging Disease Alert (Prediction):**
+[Based on patterns, suggest a potential differential diagnosis or future risk. Be specific.]
+
+---
+
+### 🫁 **Right Lung**
+
+* **Finding:** [Describe the primary finding for this region]
+
+* **Confidence Level:** [Provide a numerical percentage] ([State High/Medium/Low])
+
+* **Severity Assessment:** [State "Severe", "Moderate", "Mild", or "Normal"]
+
+* **Detailed Notes:**
+[Provide detailed radiological observations for this finding.]
+
+* **Clinical Suggestion:**
+[Suggest a specific clinical action.]
+
+* **Emerging Disease Alert (Prediction):**
+[Suggest a potential differential diagnosis or future risk.]
+
+---
+
+### ❤️ **Cardiac Silhouette**
+
+* **Finding:** [Describe the finding for the heart]
+
+* **Confidence Level:** [Provide a numerical percentage]
+
+* **Detailed Notes:**
+[Provide detailed radiological observations for this finding.]
+
+* **Clinical Suggestion:**
+[Suggest a specific clinical action.]
+
+---
+
+### 🌬️ **Pleural Region**
+
+* **Finding:** [Describe the finding for the pleura]
+
+* **Confidence Level:** [Provide a numerical percentage]
+
+* **Detailed Notes:**
+[Provide detailed radiological observations for this finding.]
+
+* **Clinical Suggestion:**
+[Suggest a specific clinical action.]
+
+---
+
+### 🦴 **Skeletal Structures**
+
+* **Finding:** [Describe the finding for bones]
+
+* **Confidence Level:** [Provide a numerical percentage]
+
+* **Detailed Notes:**
+[Provide detailed radiological observations for this finding.]
+
+* **Clinical Suggestion:**
+[Suggest a specific clinical action.]
+
+---
+
+### 🫁 **Mediastinum & Trachea**
+
+* **Finding:** [Describe the finding for the mediastinum]
+
+* **Confidence Level:** [Provide a numerical percentage]
+
+* **Detailed Notes:**
+[Provide detailed radiological observations for this finding.]
+
+* **Clinical Suggestion:**
+[Suggest a specific clinical action.]
+
+---
+
+## 🔍 **AI-Driven Clinical Recommendations Summary**
+
+[Provide a numbered list of 3-5 clear, consolidated, actionable recommendations based on the overall findings.]
+
+---
+
+### ⚠️ **Medical Disclaimer**
+
+> *This is an AI-generated diagnostic suggestion and should only be used to assist clinical judgment. Final diagnosis, prescriptions, and interventions should be made by a licensed healthcare provider based on patient history, lab tests, and physical examination.*
+---
+
+Now, generate the complete report by filling in the 'markdownReport' field in the output schema with the fully populated Markdown text. Ensure all sections are filled out comprehensively and accurately based on the image analysis.
 `,
 });
 

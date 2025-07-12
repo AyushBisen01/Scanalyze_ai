@@ -33,7 +33,6 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
     scanDate: new Date().toISOString().split('T')[0],
     modality: 'Chest X-Ray (PA View)',
     clinicalHistory: '',
-    previousScanData: '',
   });
   const [basicReport, setBasicReport] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -69,20 +68,22 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
   };
 
   const handleDownloadPdf = async (detailedReportMarkdown: string) => {
-    // Dynamically import libraries to avoid SSR issues
     const { default: jsPDF } = await import('jspdf');
     const { default: html2canvas } = await import('html2canvas');
 
     const reportElement = document.createElement('div');
-    // Simple conversion logic for now, can be improved with a proper markdown-to-html library if needed
+    // Improved markdown to html conversion
     const html = detailedReportMarkdown
-      .replace(/# (.+)/g, '<h1>$1</h1>')
-      .replace(/## (.+)/g, '<h2>$1</h2>')
-      .replace(/### (.+)/g, '<h3>$1</h3>')
+      .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+      .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+      .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+      .replace(/^\* (.*$)/gm, '<li>$1</li>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/---/g, '<hr/>')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/\|(.+)\|(.+)\|/g, (match, header, content) => `<tr><td style="padding: 5px; border: 1px solid #ddd;">${header.trim()}</td><td style="padding: 5px; border: 1px solid #ddd;">${content.trim()}</td></tr>`)
-      .replace(/(\n(?!<tr>)(.+?))+/g, (match) => `<p>${match.trim().replace(/\n/g, '<br/>')}</p>`);
+      .replace(/(\r\n|\n|\r)/gm, '<br/>')
+      .replace(/<\/li><br\/>/g, '</li>');
+
       
     reportElement.innerHTML = `<div style="font-family: Arial, sans-serif; font-size: 12px; padding: 20px; color: black; background-color: white; max-width: 800px;"><table>${html}</table></div>`;
     document.body.appendChild(reportElement);
@@ -96,22 +97,22 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
         const pdfHeight = pdf.internal.pageSize.getHeight();
         const imgProps = pdf.getImageProperties(imgData);
         const ratio = imgProps.width / imgProps.height;
-        const imgHeight = pdfWidth / ratio;
+        let imgHeight = pdfWidth / ratio;
         
         let heightLeft = imgHeight;
         let position = 0;
 
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
+        pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth-20, imgHeight-20);
         heightLeft -= pdfHeight;
 
         while (heightLeft > 0) {
             position = heightLeft - imgHeight;
             pdf.addPage();
-            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+            pdf.addImage(imgData, 'PNG', 10, position-10, pdfWidth-20, imgHeight-20);
             heightLeft -= pdfHeight;
         }
 
-        pdf.save('radioagent_report.pdf');
+        pdf.save('radioagent_detailed_report.pdf');
     } catch (error) {
         console.error("Failed to generate PDF:", error);
         toast({
@@ -138,8 +139,8 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
 
     if (result.success) {
       toast({
-        title: "Report Generated",
-        description: "Your PDF report is downloading.",
+        title: "Detailed Report Generated",
+        description: "Your PDF report is now downloading.",
       });
       await handleDownloadPdf(result.data.markdownReport);
     } else {
@@ -172,7 +173,7 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileText className="w-5 h-5 text-primary" />
-          <span>Detailed Report</span>
+          <span>AI Diagnostic Report</span>
         </CardTitle>
         <CardDescription>Initial AI-generated analysis based on the image.</CardDescription>
       </CardHeader>
@@ -194,7 +195,7 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="w-full" disabled={!analysisResult}>
+            <Button className="w-full" disabled={!analysisResult || isGenerating}>
               <Download className="mr-2 h-4 w-4" />
               Generate & Download Detailed Report (PDF)
             </Button>
@@ -203,7 +204,7 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
             <DialogHeader>
               <DialogTitle>Enter Patient Information for Detailed Report</DialogTitle>
               <DialogDescription>
-                This information will be used to generate the final diagnostic PDF report.
+                This information will be used to generate the final diagnostic PDF report. All fields are required.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -223,10 +224,6 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
               <div>
                 <Label htmlFor="clinicalHistory">Clinical History</Label>
                 <Textarea id="clinicalHistory" placeholder="e.g., 45-year-old male, non-smoker, history of pneumonia..." value={patientInfo.clinicalHistory} onChange={handleInputChange} className="mt-2" rows={3} disabled={isGenerating} />
-              </div>
-              <div>
-                <Label htmlFor="previousScanData">Previous Scan Comparison Data (Optional)</Label>
-                <Textarea id="previousScanData" placeholder="e.g., Findings from last scan (Feb 2025): Lungs clear." value={patientInfo.previousScanData} onChange={handleInputChange} className="mt-2" rows={2} disabled={isGenerating} />
               </div>
             </div>
             <DialogFooter>

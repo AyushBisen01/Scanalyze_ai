@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import type { AnalysisResult } from '@/app/actions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -107,50 +108,36 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
     const addWrappedText = (text: string, options: { isBold?: boolean, isItalic?: boolean, indent?: number, isListItem?: boolean, fontSize?: number, isHeading?: boolean } = {}) => {
         const { isBold = false, isItalic = false, indent = 0, isListItem = false, fontSize = 10, isHeading = false } = options;
         
-        let processedText = text;
-        const boldRegex = /\*\*(.*?)\*\*/g;
-        let parts = [];
-        let lastIndex = 0;
-        let match;
-
-        while ((match = boldRegex.exec(processedText)) !== null) {
-            if (match.index > lastIndex) {
-                parts.push({ text: processedText.substring(lastIndex, match.index), bold: isBold });
-            }
-            parts.push({ text: match[1], bold: true });
-            lastIndex = match.index + match[0].length;
-        }
-        if (lastIndex < processedText.length) {
-            parts.push({ text: processedText.substring(lastIndex), bold: isBold });
-        }
-        
-        const originalFontSize = pdf.getFontSize();
         pdf.setFontSize(fontSize);
-
-        parts.forEach(part => {
-             const fontStyle = part.bold && isItalic ? 'bolditalic' : part.bold ? 'bold' : isItalic ? 'italic' : 'normal';
-             pdf.setFont('helvetica', fontStyle);
-             const lines = pdf.splitTextToSize(part.text, contentWidth - indent - (isListItem ? 5 : 0) - pdf.getStringUnitWidth(parts.map(p=>p.text).join('')) * fontSize);
-             lines.forEach((line: string) => {
-                checkPageBreak(fontSize * 0.35); 
-                pdf.text(line, margin + indent, yPos);
-             });
-        });
+        const fontStyle = isBold && isItalic ? 'bolditalic' : isBold ? 'bold' : isItalic ? 'italic' : 'normal';
+        pdf.setFont('helvetica', fontStyle);
         
-        const textHeight = (pdf.getTextDimensions(processedText, {fontSize: fontSize, maxWidth: contentWidth - indent}).h);
-        yPos += textHeight + 2;
+        let effectiveIndent = margin + indent;
+        if (isListItem) {
+            checkPageBreak(fontSize * 0.35);
+            pdf.text('•', effectiveIndent, yPos);
+            effectiveIndent += 5;
+        }
 
-        pdf.setFontSize(originalFontSize);
+        const lines = pdf.splitTextToSize(text, contentWidth - indent - (isListItem ? 5 : 0));
+        
+        lines.forEach((line: string) => {
+           checkPageBreak(fontSize * 0.35); 
+           pdf.text(line, effectiveIndent, yPos);
+           yPos += (fontSize * 0.35) + 2; // Line height
+        });
+
+        yPos += 2; // Add a bit more space after each wrapped text block
     };
 
     const addSectionTitle = (title: string) => {
       checkPageBreak(20);
-      yPos += 5; 
+      yPos += 8; 
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(14);
       pdf.setTextColor(0, 0, 0);
       pdf.text(title, margin, yPos);
-      yPos += 5;
+      yPos += 6;
       pdf.setDrawColor(220, 220, 220); 
       pdf.line(margin, yPos, pdfWidth - margin, yPos);
       yPos += 8;
@@ -166,23 +153,23 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
     // Patient Info
     addSectionTitle('Patient Information');
     const infoTable = [
-        [{text:'Patient Name:', bold:true}, {text: patientInfo.patientName || 'N/A'}],
-        [{text:'Patient ID:', bold:true}, {text: patientInfo.patientId || 'N/A'}],
-        [{text:'Date of Birth:', bold:true}, {text: patientInfo.dateOfBirth || 'N/A'}],
-        [{text:'Gender:', bold:true}, {text: patientInfo.gender || 'N/A'}],
-        [{text:'Referring Physician:', bold:true}, {text: patientInfo.referringPhysician || 'N/A'}],
-        [{text:'Hospital / Unit:', bold:true}, {text: patientInfo.hospital || 'N/A'}],
-        [{text:'Scan Date:', bold:true}, {text: patientInfo.scanDate || 'N/A'}],
-        [{text:'Modality:', bold:true}, {text: patientInfo.modality || 'N/A'}],
+        ['Patient Name:', patientInfo.patientName || 'N/A'],
+        ['Patient ID:', patientInfo.patientId || 'N/A'],
+        ['Date of Birth:', patientInfo.dateOfBirth || 'N/A'],
+        ['Gender:', patientInfo.gender || 'N/A'],
+        ['Referring Physician:', patientInfo.referringPhysician || 'N/A'],
+        ['Hospital / Unit:', patientInfo.hospital || 'N/A'],
+        ['Scan Date:', patientInfo.scanDate || 'N/A'],
+        ['Modality:', patientInfo.modality || 'N/A'],
     ];
     
-    // Simple two-column layout for patient info
-    infoTable.forEach(row => {
+    pdf.setFontSize(10);
+    infoTable.forEach(([key, value]) => {
         checkPageBreak(10);
         pdf.setFont('helvetica', 'bold');
-        pdf.text(row[0].text, margin, yPos);
+        pdf.text(key, margin, yPos);
         pdf.setFont('helvetica', 'normal');
-        pdf.text(row[1].text, margin + 50, yPos);
+        pdf.text(value, margin + 50, yPos);
         yPos += 7;
     })
     yPos += 5;
@@ -199,11 +186,14 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
         const imgHeight = 60; 
         const imgWidth = 80;
         const combinedHeight = imgHeight + 15;
-        checkPageBreak(combinedHeight + 10);
+        checkPageBreak(combinedHeight + 15);
         
+        yPos += 5;
         addWrappedText(`File ${index + 1}`, {isBold: true, fontSize: 12});
 
         const startY = yPos;
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
         pdf.text(`Original Scan`, margin, startY);
         pdf.addImage(uri, 'PNG', margin, startY + 2, imgWidth, imgHeight);
 
@@ -218,10 +208,22 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
     // Detailed Report from Markdown
     const reportLines = reportMarkdown.split('\n');
     let reportStarted = false;
+    let skipSection = false;
 
     for(const line of reportLines) {
       const trimmedLine = line.trim();
       if (!trimmedLine) continue;
+      
+      // Logic to skip Patient Info/History sections from markdown
+      if (trimmedLine.toLowerCase().includes('patient information') || trimmedLine.toLowerCase().includes('clinical history')) {
+        skipSection = true;
+        continue;
+      }
+      if (skipSection && trimmedLine.startsWith('---')) {
+        skipSection = false;
+        continue;
+      }
+      if (skipSection) continue;
 
       if (trimmedLine.startsWith('## 📌 **Findings Summary')) {
         reportStarted = true;
@@ -229,53 +231,36 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
       
       if (!reportStarted) continue;
       
-      // Skip sections already manually added
-      if (trimmedLine.toLowerCase().includes('patient information') || trimmedLine.toLowerCase().includes('clinical history')) {
-          // Find the next '---' to skip the whole section
-          let i = reportLines.indexOf(line);
-          while(i < reportLines.length && !reportLines[i].startsWith('---')) {
-              i++;
-          }
-          continue; // effectively skipping this line. This logic is a bit weak. A better way is needed.
-      }
-
-
       if (trimmedLine.startsWith('## ')) {
           addSectionTitle(trimmedLine.substring(3).replace(/📌|🔍|⚠️/g, '').replace(/\*\*/g, '').trim());
       } else if (trimmedLine.startsWith('### ')) {
           checkPageBreak(12);
-          yPos += 4;
+          yPos += 6;
           addWrappedText(trimmedLine.substring(4).replace(/🫁|❤️|🌬️|🦴/g, '').replace(/\*\*/g, '').trim(), { isBold: true, fontSize: 12, isHeading: true });
-          yPos += 2;
+          yPos += 3;
       } else if (trimmedLine.startsWith('*   **')) {
           const match = trimmedLine.match(/\*\s+\*\*(.*?):\*\*\s*(.*)/);
           if (match) {
               const key = match[1].trim();
-              let value = match[2].trim().replace(/\*\*/g, '');
-              if (value.startsWith('[') && value.endsWith(']')) {
-                  value = value.substring(1, value.length - 1);
-              }
-              // Render key-value pair
+              let value = match[2].trim().replace(/\*\*(.*?)\*\*/g, '$1').replace(/\[|\]/g, '');
+              
               checkPageBreak(10);
-              pdf.setFont('helvetica', 'bold');
-              pdf.text(`${key}:`, margin + 5, yPos);
-              pdf.setFont('helvetica', 'normal');
-              const valueLines = pdf.splitTextToSize(value, contentWidth - 45); // 5 for indent, 40 for key
-              pdf.text(valueLines, margin + 40, yPos);
-              yPos += (valueLines.length * 5) + 2;
+              yPos += 4;
+              const keyY = yPos;
+              addWrappedText(`${key}: `, { isBold: true, indent: 5 });
+              const valueY = yPos;
+              // Reset yPos to start value text on the same line as the key if possible
+              yPos = keyY; 
+              addWrappedText(value, { indent: 40 });
           }
       } else if (trimmedLine.startsWith('* ')) {
-           checkPageBreak(10);
-           pdf.text('•', margin + 5, yPos);
-           const textWithoutBullet = trimmedLine.substring(2);
-           const textLines = pdf.splitTextToSize(textWithoutBullet, contentWidth - 15);
-           pdf.text(textLines, margin + 10, yPos);
-           yPos += (textLines.length * 5) + 2;
-
+           const textWithoutBullet = trimmedLine.substring(2).replace(/\*\*(.*?)\*\*/g, '$1');
+           addWrappedText(textWithoutBullet, { isListItem: true, indent: 5 });
       } else if (trimmedLine.startsWith('> ')) {
+          yPos += 4;
           addWrappedText(trimmedLine.substring(2), { isItalic: true, indent: 5 });
       } else if (trimmedLine !== '---' && !trimmedLine.startsWith('#')) {
-          addWrappedText(trimmedLine);
+          addWrappedText(trimmedLine.replace(/\*\*(.*?)\*\*/g, '$1'));
       }
     };
 

@@ -31,6 +31,7 @@ const ExplainDiagnosisOutputSchema = z.object({
     .describe(
       'A data URI containing the visual explanation (Grad-CAM or saliency map) highlighting the areas of the image that contributed most to the diagnosis. Expected format: data:<mimetype>;base64,<encoded_data>.'
     ),
+  explanationText: z.string().describe('A short textual summary of what the visual explanation highlights.'),
   confidenceScore: z
     .number()
     .describe('The confidence score of the diagnosis explanation.'),
@@ -41,24 +42,6 @@ export async function explainDiagnosis(input: ExplainDiagnosisInput): Promise<Ex
   return explainDiagnosisFlow(input);
 }
 
-const explainDiagnosisPrompt = ai.definePrompt({
-  name: 'explainDiagnosisPrompt',
-  input: {schema: ExplainDiagnosisInputSchema},
-  output: {schema: ExplainDiagnosisOutputSchema},
-  prompt: `You are an AI assistant that generates visual explanations for medical image diagnoses.
-
-You are provided with a medical image and a diagnosis. Your task is to generate a visual
-explanation (Grad-CAM or saliency map) that highlights the areas of the image that contributed
-most to the diagnosis. The explanation should be returned as a data URI.
-
-Image: {{media url=imageDataUri}}
-Diagnosis: {{{diagnosis}}}
-
-You should also provide a confidence score for the explanation.
-
-Return the explanation image as a data URI and the confidence score.`, 
-});
-
 const explainDiagnosisFlow = ai.defineFlow(
   {
     name: 'explainDiagnosisFlow',
@@ -66,13 +49,13 @@ const explainDiagnosisFlow = ai.defineFlow(
     outputSchema: ExplainDiagnosisOutputSchema,
   },
   async input => {
-    const {media} = await ai.generate({
+    const response = await ai.generate({
       // IMPORTANT: ONLY the googleai/gemini-2.0-flash-preview-image-generation model is able to generate images. You MUST use exactly this model to generate images.
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
 
       prompt: [
         {media: {url: input.imageDataUri}},
-        {text: `Generate a visual explanation (Grad-CAM or saliency map) that highlights the areas of the image that contributed most to the diagnosis: ${input.diagnosis}`},
+        {text: `Generate a visual explanation (Grad-CAM or saliency map) that highlights the areas of the image that contributed most to the diagnosis: ${input.diagnosis}. Also, provide a short, one-sentence text explanation of what the highlighted areas signify.`},
       ],
 
       config: {
@@ -83,8 +66,9 @@ const explainDiagnosisFlow = ai.defineFlow(
     // Since the prompt requires both TEXT and IMAGE, media.url will always be defined.
     // text may not be defined, but isn't used in this flow, so it is fine.
     return {
-      explanationImage: media.url,
-      confidenceScore: 0.95,
+      explanationImage: response.media.url,
+      explanationText: response.text,
+      confidenceScore: 0.95, // Placeholder confidence score
     };
   }
 );

@@ -97,7 +97,7 @@ export function ExplanationCard({ imageDataUris, analysisResult, isLoading }: Ex
         <CardDescription>Visually explain how the AI reached its conclusion for each image.</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow flex flex-col items-center justify-center space-y-4">
-        <Carousel className="w-full max-w-sm" opts={{ loop: true }}>
+        <Carousel className="w-full max-w-xl" opts={{ loop: true }}>
           <CarouselContent>
             {imageDataUris.map((uri, index) => {
               const currentExplanation = explanations[uri];
@@ -106,14 +106,14 @@ export function ExplanationCard({ imageDataUris, analysisResult, isLoading }: Ex
 
               return (
                 <CarouselItem key={index}>
-                  <div className="p-1">
-                     <p className="text-center font-semibold text-sm mb-2">Image {index + 1} of {imageDataUris.length}</p>
-                    <div className="grid grid-cols-2 gap-4 w-full mb-4">
+                  <div className="p-1 space-y-4">
+                     <p className="text-center font-semibold text-sm">Image {index + 1} of {imageDataUris.length}</p>
+                    <div className="grid grid-cols-2 gap-4 w-full">
                       <div className="text-center">
                         <Image src={uri} alt={`Original Scan ${index+1}`} width={200} height={200} className="rounded-md border mx-auto object-cover aspect-square" data-ai-hint="xray scan" />
                         <p className="text-xs font-semibold mt-2">Original</p>
                       </div>
-                      <div className="text-center">
+                      <div className="text-center space-y-2">
                         {isGenerating ? (
                            <div className="w-full h-[200px] flex items-center justify-center bg-secondary rounded-md">
                               <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -125,9 +125,18 @@ export function ExplanationCard({ imageDataUris, analysisResult, isLoading }: Ex
                             <p className="text-xs text-muted-foreground">Explanation will appear here.</p>
                           </div>
                         )}
-                        <p className="text-xs font-semibold mt-2">AI Explanation</p>
+                        <p className="text-xs font-semibold">AI Explanation</p>
                       </div>
                     </div>
+
+                    {isGenerating ? (
+                      <Skeleton className="h-10 w-full" />
+                    ) : explanation?.explanationText ? (
+                      <div className="text-center bg-secondary p-2 rounded-md">
+                        <p className="text-xs text-secondary-foreground italic">{explanation.explanationText}</p>
+                      </div>
+                    ) : null }
+
                     <Button onClick={() => handleExplain(uri, index)} disabled={isGenerating || !analysisResult} className="w-full">
                       {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                       {explanation ? 'Regenerate Explanation' : 'Generate Explanation'}
@@ -139,8 +148,8 @@ export function ExplanationCard({ imageDataUris, analysisResult, isLoading }: Ex
           </CarouselContent>
           {imageDataUris.length > 1 && (
             <>
-              <CarouselPrevious />
-              <CarouselNext />
+              <CarouselPrevious className="hidden md:flex" />
+              <CarouselNext className="hidden md:flex" />
             </>
           )}
         </Carousel>

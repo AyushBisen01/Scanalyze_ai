@@ -16,23 +16,21 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import ReactMarkdown from 'react-markdown';
 import type { ExplanationMap } from './explanation-card';
+import jsPDF from 'jspdf';
 
 // Function to extract a filename from the report
 const getPdfFilename = (markdown: string, patientName?: string): string => {
-    // Try to find the first major finding as the title
     const findingMatch = markdown.match(/^\*   \*\*Finding:\*\* \[([^\]]+)\]/m);
     if (findingMatch && findingMatch[1]) {
         const title = findingMatch[1].replace(/[^a-z0-9]/gi, '_').replace(/_{2,}/g, '_');
         return `RadioAgent_Report_${title}.pdf`;
     }
 
-    // Fallback to patient name
     if (patientName && patientName.trim() !== '') {
         const safePatientName = patientName.replace(/[^a-z0-9]/gi, '_').replace(/_{2,}/g, '_');
         return `RadioAgent_Report_${safePatientName}.pdf`;
     }
 
-    // Generic fallback
     return 'RadioAgent_Detailed_Report.pdf';
 };
 
@@ -90,136 +88,143 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
   };
 
   const handleDownloadPdf = async (detailedReportMarkdown: string) => {
-    const { default: jsPDF } = await import('jspdf');
-
-    const imageUrisToProcess = (imageDataUris || []).filter(uri => uri.startsWith('data:image'));
-
     const pdf = new jsPDF('p', 'mm', 'a4');
-    const pdfWidth = pdf.internal.pageSize.getWidth();
     const margin = 15;
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const contentWidth = pdfWidth - (margin * 2);
+    let yPos = margin;
+    let pageCount = 1;
 
-    // Create a hidden element to render HTML for PDF conversion
-    const reportElement = document.createElement('div');
-    reportElement.style.position = 'absolute';
-    reportElement.style.left = '-9999px';
-    reportElement.style.width = `${(pdfWidth - margin * 2) * 4}px`; // Approx width in pixels
-    reportElement.style.fontFamily = 'Arial, sans-serif';
-    reportElement.style.color = '#333';
-    reportElement.style.background = '#fff';
-    reportElement.style.fontSize = '12px'; // Base font size
-    document.body.appendChild(reportElement);
-
-    try {
-        // --- CONSTRUCT ONE BIG HTML STRING ---
-
-        // Patient Info HTML
-        const patientInfoHtml = `
-            <div style="padding: 0 ${margin}px;">
-                <h2 style="font-size: 16px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px;">Patient Information</h2>
-                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                    <tbody>
-                        <tr><td style="padding: 4px 8px; font-weight: bold; width: 15%;">Patient Name:</td><td style="padding: 4px 8px; width: 35%;">${patientInfo.patientName || 'N/A'}</td><td style="padding: 4px 8px; font-weight: bold; width: 15%;">Hospital / Unit:</td><td style="padding: 4px 8px; width: 35%;">${patientInfo.hospital || 'N/A'}</td></tr>
-                        <tr><td style="padding: 4px 8px; font-weight: bold;">Patient ID:</td><td style="padding: 4px 8px;">${patientInfo.patientId || 'N/A'}</td><td style="padding: 4px 8px; font-weight: bold;">Scan Date:</td><td style="padding: 4px 8px;">${patientInfo.scanDate || 'N/A'}</td></tr>
-                        <tr><td style="padding: 4px 8px; font-weight: bold;">Date of Birth:</td><td style="padding: 4px 8px;">${patientInfo.dateOfBirth || 'N/A'}</td><td style="padding: 4px 8px; font-weight: bold;">Modality:</td><td style="padding: 4px 8px;">${patientInfo.modality || 'N/A'}</td></tr>
-                        <tr><td style="padding: 4px 8px; font-weight: bold;">Gender:</td><td style="padding: 4px 8px;">${patientInfo.gender || 'N/A'}</td><td style="padding: 4px 8px; font-weight: bold;">Referring Physician:</td><td style="padding: 4px 8px;">${patientInfo.referringPhysician || 'N/A'}</td></tr>
-                    </tbody>
-                </table>
-                <h2 style="font-size: 16px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px; margin-top: 15px;">Clinical History</h2>
-                <p style="font-size: 12px; padding: 4px 8px; white-space: pre-wrap;">${patientInfo.clinicalHistory || 'Not Provided'}</p>
-            </div>
-        `;
-
-        // Images HTML
-        let imagesHtml = '';
-        if (imageUrisToProcess.length > 0) {
-            imagesHtml += `<div style="padding: 0 ${margin}px; margin-top: 15px; page-break-before: always;"><h2 style="font-size: 16px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 15px;">Key Images</h2></div>`;
-            
-            for (const [index, uri] of imageUrisToProcess.entries()) {
-                const explanationImageUri = explanations[uri]?.explanation?.explanationImage;
-                imagesHtml += `
-                    <div style="padding: 0 ${margin}px; margin-bottom: 25px; page-break-inside: avoid;">
-                        <div style="display: flex; justify-content: space-around; align-items: flex-start; gap: 20px; text-align: center;">
-                            <div style="width: 48%;">
-                                <h3 style="font-size: 12px; font-weight: 600; margin-bottom: 10px;">Original Scan (File ${index + 1})</h3>
-                                <img src="${uri}" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;" />
-                            </div>
-                            ${explanationImageUri ? `
-                                <div style="width: 48%;">
-                                    <h3 style="font-size: 12px; font-weight: 600; margin-bottom: 10px;">AI Explanation</h3>
-                                    <img src="${explanationImageUri}" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;" />
-                                </div>
-                            ` : `
-                                <div style="width: 48%; display: flex; align-items: center; justify-content: center; border: 1px dashed #ccc; border-radius: 4px; min-height: 150px;">
-                                    <p style="color: #888; font-size: 11px;">No AI explanation generated.</p>
-                                </div>
-                            `}
-                        </div>
-                    </div>
-                `;
-            }
+    // --- PDF HELPER FUNCTIONS ---
+    const checkPageBreak = (spaceNeeded: number) => {
+        if (yPos + spaceNeeded > pdf.internal.pageSize.getHeight() - margin) {
+            pdf.addPage();
+            pageCount++;
+            yPos = margin;
+            addHeader();
         }
+    };
+
+    const addHeader = () => {
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(18);
+      pdf.setTextColor(102, 153, 204); // #6699CC
+      pdf.text('RadioAgent Diagnostic Report', pdfWidth / 2, yPos, { align: 'center' });
+      yPos += 10;
+    };
+
+    const addSectionTitle = (title: string) => {
+      checkPageBreak(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(14);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(title, margin, yPos);
+      yPos += 5;
+      pdf.setDrawColor(238, 238, 238); // #eee
+      pdf.line(margin, yPos, pdfWidth - margin, yPos);
+      yPos += 8;
+    };
+    
+    const addWrappedText = (text: string, options: { isBold?: boolean, isItalic?: boolean, indent?: number, isListItem?: boolean } = {}) => {
+        const { isBold = false, isItalic = false, indent = 0, isListItem = false } = options;
+        const fontStyle = isBold && isItalic ? 'bolditalic' : isBold ? 'bold' : isItalic ? 'italic' : 'normal';
+        pdf.setFont('helvetica', fontStyle);
+        pdf.setFontSize(10);
+        pdf.setTextColor(51, 51, 51); // #333
         
-        // Report Markdown to HTML
-        const markdownHtml = detailedReportMarkdown
-            .replace(/^# (.*$)/gim, '') // Remove main H1 as we have a PDF header
-            .replace(/^## (.*$)/gim, '<h2 style="font-size: 16px; font-weight: 600; margin-top: 1.5em; margin-bottom: 0.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; page-break-before: auto; page-break-inside: avoid;">$1</h2>')
-            .replace(/^### (.*$)/gim, '<h3 style="font-size: 14px; font-weight: 600; margin-top: 1em; margin-bottom: 0.5em; page-break-after: avoid;">$1</h3>')
-            .replace(/^\*   \*\*(.*?):\*\* (.*$)/gim, '<p style="margin-left: 10px; margin-bottom: 0.5em;"><strong>$1:</strong> $2</p>')
-            .replace(/^\* (.*$)/gim, '<p style="margin-left: 20px; margin-bottom: 0.5em;">&bull; $1</p>')
-            .replace(/---/g, '<hr style="border: none; border-top: 1px solid #ccc; margin: 1.5em 0;" />')
-            .replace(/^> (.*$)/gim, '<blockquote style="border-left: 4px solid #ccc; padding-left: 1em; margin-left: 0; font-style: italic;">$1</blockquote>')
-            .replace(/\n/g, '<br />')
-            .replace(/<br \/>\s*<br \/>/g, '<br />');
-
-        const reportHtml = `<div style="padding: 0 ${margin}px; page-break-before: always;">${markdownHtml}</div>`;
-        
-        // --- RENDER THE SINGLE HTML STRING ---
-        const fullHtml = `
-            <div>
-                ${patientInfoHtml}
-                ${imagesHtml}
-                ${reportHtml}
-            </div>
-        `;
-        
-        reportElement.innerHTML = fullHtml;
-
-        // Add a header to each page
-        const header = `<div style="padding: 10px; text-align: center; margin-bottom: 10px;">
-                          <h1 style="font-size: 20px; font-weight: 700; color: #6699CC; margin: 0;">RadioAgent Diagnostic Report</h1>
-                        </div>`;
-
-        await pdf.html(header, {
-            x: 0,
-            y: 0,
-            width: pdfWidth,
-            windowWidth: pdfWidth
-        });
-
-        await pdf.html(reportElement, {
-            x: 0,
-            y: 30, // Start content below the header
-            width: pdfWidth,
-            windowWidth: reportElement.clientWidth,
-            autoPaging: 'text',
-            margin: [30, margin, 15, margin] // Top, right, bottom, left
-        });
-        
-        const filename = getPdfFilename(detailedReportMarkdown, patientInfo.patientName);
-        pdf.save(filename);
-
-    } catch (error) {
-        console.error("Failed to generate PDF:", error);
-        toast({
-            variant: 'destructive',
-            title: 'PDF Generation Failed',
-            description: 'There was an error creating the PDF file.',
-        });
-    } finally {
-        if (reportElement) {
-            document.body.removeChild(reportElement);
+        const fullIndent = margin + indent + (isListItem ? 5 : 0);
+        let textToWrap = text;
+        if(isListItem) {
+          pdf.text('•', margin + indent + 2, yPos);
         }
+
+        const lines = pdf.splitTextToSize(textToWrap, contentWidth - indent - (isListItem ? 5 : 0));
+        lines.forEach((line: string) => {
+            checkPageBreak(5);
+            pdf.text(line, fullIndent, yPos);
+            yPos += 5;
+        });
+    };
+
+    // --- START BUILDING PDF ---
+    addHeader();
+
+    // Patient Info
+    addSectionTitle('Patient Information');
+    const info = [
+        `Patient Name: ${patientInfo.patientName || 'N/A'}`,
+        `Patient ID: ${patientInfo.patientId || 'N/A'}`,
+        `Date of Birth: ${patientInfo.dateOfBirth || 'N/A'}`,
+        `Gender: ${patientInfo.gender || 'N/A'}`,
+        `Referring Physician: ${patientInfo.referringPhysician || 'N/A'}`,
+        `Hospital / Unit: ${patientInfo.hospital || 'N/A'}`,
+        `Scan Date: ${patientInfo.scanDate || 'N/A'}`,
+        `Modality: ${patientInfo.modality || 'N/A'}`,
+    ];
+    info.forEach(line => addWrappedText(line));
+    yPos += 5;
+
+    // Clinical History
+    addSectionTitle('Clinical History');
+    addWrappedText(patientInfo.clinicalHistory || 'Not Provided');
+    yPos += 5;
+
+    // Images
+    const imageUrisToProcess = (imageDataUris || []).filter(uri => uri.startsWith('data:image'));
+    if (imageUrisToProcess.length > 0) {
+      addSectionTitle('Key Images');
+      for (const [index, uri] of imageUrisToProcess.entries()) {
+        const explanationImageUri = explanations[uri]?.explanation?.explanationImage;
+        const imgHeight = 60; 
+        const imgWidth = 80;
+        checkPageBreak(imgHeight + 15);
+
+        addWrappedText(`Original Scan (File ${index + 1})`, {isBold: true});
+        yPos += 2;
+        pdf.addImage(uri, 'PNG', margin, yPos, imgWidth, imgHeight);
+
+        if (explanationImageUri) {
+          addWrappedText(`AI Explanation`, { isBold: true, indent: imgWidth + 10 });
+          pdf.addImage(explanationImageUri, 'PNG', margin + imgWidth + 10, yPos, imgWidth, imgHeight);
+        }
+        yPos += imgHeight + 10;
+      }
     }
+    
+    // Detailed Report from Markdown
+    const reportLines = detailedReportMarkdown.split('\n');
+
+    reportLines.forEach(line => {
+      line = line.trim();
+      if (!line) return;
+
+      if (line.startsWith('## ')) {
+          addSectionTitle(line.substring(3).replace(/📌|🔍|⚠️/g, '').trim());
+      } else if (line.startsWith('### ')) {
+          checkPageBreak(8);
+          addWrappedText(line.substring(4).replace(/🫁|❤️|🌬️|🦴/g, '').trim(), { isBold: true });
+          yPos += 2;
+      } else if (line.startsWith('*   **')) { // e.g., *   **Finding:** [Description]
+          const match = line.match(/\*\s+\*\*(.*?):\*\*\s*(.*)/);
+          if (match) {
+              const key = match[1].trim();
+              let value = match[2].trim();
+              if (value.startsWith('[') && value.endsWith(']')) {
+                  value = value.substring(1, value.length - 1);
+              }
+              addWrappedText(`${key}: ${value}`, { indent: 5 });
+          }
+      } else if (line.startsWith('* ')) { // list item for recommendations
+          addWrappedText(line.substring(2), { isListItem: true, indent: 5 });
+      } else if (line.startsWith('> ')) { // blockquote for disclaimer
+          addWrappedText(line.substring(2), { isItalic: true, indent: 5 });
+      } else if (line !== '---' && !line.startsWith('#')) {
+          addWrappedText(line);
+      }
+    });
+
+    const filename = getPdfFilename(detailedReportMarkdown, patientInfo.patientName);
+    pdf.save(filename);
   };
 
 
@@ -227,9 +232,6 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
     if (!imageDataUris || imageDataUris.length === 0 || !analysisResult) return;
     setIsGenerating(true);
     
-    // In a multi-image scenario, AI analysis is synthesized.
-    // We pass the first image for visual context, but the report
-    // is based on the combined findings.
     const input: GenerateDetailedReportInput = {
       imageDataUri: imageDataUris[0], 
       ...patientInfo,

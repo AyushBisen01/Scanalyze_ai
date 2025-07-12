@@ -61,7 +61,7 @@ export function DashboardClient() {
         {(isAnalyzing || analysisResult) && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <AnalysisCard isLoading={isAnalyzing} result={analysisResult} />
-            <ExplanationCard isLoading={isAnalyzing} imageDataUri={imageDataUris ? imageDataUris[0] : null} analysisResult={analysisResult} />
+            <ExplanationCard isLoading={isAnalyzing} imageDataUris={imageDataUris} analysisResult={analysisResult} />
           </div>
         )}
         

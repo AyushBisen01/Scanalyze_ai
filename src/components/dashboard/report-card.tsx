@@ -14,15 +14,47 @@ import type { GenerateDetailedReportInput } from '@/ai/flows/generate-detailed-r
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import ReactMarkdown from 'react-markdown';
+import type { ExplanationMap } from './explanation-card';
+
+// Function to convert Markdown to styled HTML for the PDF
+const markdownToHtml = (markdown: string) => {
+  let html = markdown
+    // Headings
+    .replace(/^### (.*$)/gim, '<h3 style="font-size: 16px; font-weight: 600; margin-top: 1em; margin-bottom: 0.5em;">$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2 style="font-size: 18px; font-weight: 600; margin-top: 1.5em; margin-bottom: 0.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em;">$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1 style="font-size: 22px; font-weight: 700; margin-bottom: 1em;">$1</h1>')
+    // Bold
+    .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+    // List items
+    .replace(/^\* (.*$)/gim, '<li style="margin-left: 20px; margin-bottom: 0.5em;">$1</li>')
+    // HR
+    .replace(/---/g, '<hr style="border: none; border-top: 1px solid #ccc; margin: 1.5em 0;" />')
+    // Blockquotes (for disclaimer)
+    .replace(/^> (.*$)/gim, '<blockquote style="border-left: 4px solid #ccc; padding-left: 1em; margin-left: 0; font-style: italic;">$1</blockquote>')
+    // Convert newlines to breaks
+    .replace(/\n/g, '<br />');
+
+  // Wrap lists
+  html = html.replace(/<li/g, '<ul><li').replace(/<\/li><br \/><ul>/g, '</li></ul><br /><ul>');
+  html = html.replace(/<li(.*?)/g, '<ul><li$1');
+  const listEndRegex = /(<\/li>)<br \/>(?!<li)/g;
+  html = html.replace(listEndRegex, '$1</ul>');
+
+  // Cleanup redundant list tags
+  html = html.replace(/<\/ul><br \/><ul>/g, '');
+  
+  return html;
+};
 
 
 interface ReportCardProps {
-  imageDataUri?: string | null;
+  imageDataUris?: string[] | null;
   analysisResult?: AnalysisResult | null;
   isLoading?: boolean;
+  explanations: ExplanationMap;
 }
 
-export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCardProps) {
+export function ReportCard({ imageDataUris, analysisResult, isLoading, explanations }: ReportCardProps) {
   const [patientInfo, setPatientInfo] = useState({
     patientName: '',
     patientId: '',
@@ -71,58 +103,95 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
     const { default: jsPDF } = await import('jspdf');
     const { default: html2canvas } = await import('html2canvas');
 
+    const originalImageUri = imageDataUris?.[0]; // For now, we take the first image for the report
+    const explanationImageUri = originalImageUri ? explanations[originalImageUri]?.explanation?.explanationImage : null;
+
     const reportElement = document.createElement('div');
-    // Enhanced styling for the report content
-    const reportContentHtml = `<div class="prose prose-sm max-w-none p-5 font-sans">${detailedReportMarkdown}</div>`;
-    reportElement.innerHTML = reportContentHtml;
+    reportElement.style.width = '800px';
+    reportElement.style.padding = '20px';
+    reportElement.style.fontFamily = 'Arial, sans-serif';
+    reportElement.style.color = '#333';
+    reportElement.style.background = '#fff';
+
+    const patientInfoHtml = `
+      <div style="margin-bottom: 20px;">
+        <h2 style="font-size: 18px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px;">Patient Information</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tbody>
+            <tr><td style="padding: 4px; font-weight: bold;">Patient Name:</td><td style="padding: 4px;">${patientInfo.patientName}</td><td style="padding: 4px; font-weight: bold;">Hospital / Unit:</td><td style="padding: 4px;">${patientInfo.hospital}</td></tr>
+            <tr><td style="padding: 4px; font-weight: bold;">Patient ID:</td><td style="padding: 4px;">${patientInfo.patientId}</td><td style="padding: 4px; font-weight: bold;">Scan Date:</td><td style="padding: 4px;">${patientInfo.scanDate}</td></tr>
+            <tr><td style="padding: 4px; font-weight: bold;">Date of Birth:</td><td style="padding: 4px;">${patientInfo.dateOfBirth}</td><td style="padding: 4px; font-weight: bold;">Modality:</td><td style="padding: 4px;">${patientInfo.modality}</td></tr>
+            <tr><td style="padding: 4px; font-weight: bold;">Gender:</td><td style="padding: 4px;">${patientInfo.gender}</td><td style="padding: 4px; font-weight: bold;">Referring Physician:</td><td style="padding: 4px;">${patientInfo.referringPhysician}</td></tr>
+          </tbody>
+        </table>
+      </div>
+       <div style="margin-bottom: 20px;">
+         <h2 style="font-size: 18px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px;">Clinical History</h2>
+         <p>${patientInfo.clinicalHistory || 'Not Provided'}</p>
+       </div>
+    `;
+
+    const imageSectionHtml = `
+      <div style="margin-bottom: 20px; text-align: center;">
+        <h2 style="font-size: 18px; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 15px;">Key Images</h2>
+        <div style="display: flex; justify-content: space-around; align-items: flex-start; gap: 20px;">
+          ${originalImageUri ? `
+            <div style="width: 45%;">
+              <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">Original Scan</h3>
+              <img src="${originalImageUri}" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;" />
+            </div>
+          ` : ''}
+          ${explanationImageUri ? `
+            <div style="width: 45%;">
+              <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">AI Explanation (Heatmap)</h3>
+              <img src="${explanationImageUri}" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;" />
+            </div>
+          ` : ''}
+        </div>
+        ${!originalImageUri && !explanationImageUri ? '<p>No images available for this report.</p>' : ''}
+      </div>
+    `;
+
+    const styledReportHtml = markdownToHtml(detailedReportMarkdown);
+    reportElement.innerHTML = `
+      <h1 style="font-size: 24px; font-weight: 700; text-align: center; margin-bottom: 20px; color: #6699CC;">RadioAgent Diagnostic Report</h1>
+      ${patientInfoHtml}
+      ${imageSectionHtml}
+      <hr style="border: none; border-top: 1px solid #ccc; margin: 1.5em 0;" />
+      ${styledReportHtml}
+    `;
     
-    // Append to body to render for canvas capture
     document.body.appendChild(reportElement);
 
-    // Add styles to the document head for html2canvas to use
-    const style = document.createElement('style');
-    style.innerHTML = `
-      .prose { color: #333; }
-      .prose h1, .prose h2, .prose h3 { font-weight: 600; }
-      .prose h1 { font-size: 24px; }
-      .prose h2 { font-size: 20px; }
-      .prose h3 { font-size: 18px; margin-top: 1em; }
-      .prose hr { border-top: 1px solid #ccc; margin: 1em 0; }
-      .prose ul { list-style-type: disc; padding-left: 20px; }
-      .prose li { margin-bottom: 0.5em; }
-      .prose strong { font-weight: bold; }
-      .prose blockquote { border-left: 4px solid #ccc; padding-left: 1em; font-style: italic; }
-      .prose table { width: 100%; border-collapse: collapse; }
-      .prose th, .prose td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-      .prose th { background-color: #f2f2f2; }
-    `;
-    document.head.appendChild(style);
-
     try {
-        const canvas = await html2canvas(reportElement, { scale: 2 });
+        const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true });
         const imgData = canvas.toDataURL('image/png');
         
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
         const imgProps = pdf.getImageProperties(imgData);
         const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
         
         let heightLeft = imgHeight;
         let position = 0;
         const pageMargin = 10;
-        const pdfHeight = pdf.internal.pageSize.getHeight() - (pageMargin * 2);
+        const effectivePdfWidth = pdfWidth - (pageMargin * 2);
+        const effectivePdfHeight = pdfHeight - (pageMargin * 2);
 
-        pdf.addImage(imgData, 'PNG', pageMargin, pageMargin, pdfWidth - (pageMargin * 2), imgHeight);
-        heightLeft -= pdfHeight;
-
+        // Add first page
+        pdf.addImage(imgData, 'PNG', pageMargin, pageMargin, effectivePdfWidth, imgHeight * (effectivePdfWidth / imgProps.width));
+        heightLeft -= effectivePdfHeight;
+        
+        // Add subsequent pages if content overflows
         while (heightLeft > 0) {
-            position -= pdfHeight;
+            position -= effectivePdfHeight;
             pdf.addPage();
-            pdf.addImage(imgData, 'PNG', pageMargin, position, pdfWidth - (pageMargin*2), imgHeight);
-            heightLeft -= pdfHeight;
+            pdf.addImage(imgData, 'PNG', pageMargin, position + pageMargin, effectivePdfWidth, imgHeight * (effectivePdfWidth / imgProps.width));
+            heightLeft -= effectivePdfHeight;
         }
 
-        pdf.save('radioagent_detailed_report.pdf');
+        pdf.save('RadioAgent_Detailed_Report.pdf');
     } catch (error) {
         console.error("Failed to generate PDF:", error);
         toast({
@@ -132,17 +201,15 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
         });
     } finally {
         document.body.removeChild(reportElement);
-        document.head.removeChild(style);
     }
   };
-  
 
-  const handleGenerateReport = async () => {
-    if (!imageDataUri || !analysisResult) return;
+  const handleGenerateAndDownload = async () => {
+    if (!imageDataUris || imageDataUris.length === 0 || !analysisResult) return;
     setIsGenerating(true);
-
+    
     const input: GenerateDetailedReportInput = {
-      imageDataUri,
+      imageDataUri: imageDataUris[0], // Pass first image for main report context
       ...patientInfo,
     };
 
@@ -186,7 +253,7 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
           <FileText className="w-5 h-5 text-primary" />
           <span>AI Diagnostic Report</span>
         </CardTitle>
-        <CardDescription>Initial AI-generated analysis based on the image.</CardDescription>
+        <CardDescription>Initial AI-generated analysis based on the image series.</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow flex flex-col items-center justify-center space-y-4">
         {(isGenerating && !basicReport) || isLoading ? (
@@ -215,7 +282,7 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
             <DialogHeader>
               <DialogTitle>Enter Patient Information for Detailed Report</DialogTitle>
               <DialogDescription>
-                This information will be used to generate the final diagnostic PDF report. All fields are required.
+                This information will be used to generate the final diagnostic PDF report. All fields are optional but recommended.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -241,7 +308,7 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
               <DialogClose asChild>
                   <Button type="button" variant="secondary" disabled={isGenerating}>Cancel</Button>
               </DialogClose>
-              <Button onClick={handleGenerateReport} disabled={isGenerating}>
+              <Button onClick={handleGenerateAndDownload} disabled={isGenerating}>
                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                 Generate & Download PDF
               </Button>

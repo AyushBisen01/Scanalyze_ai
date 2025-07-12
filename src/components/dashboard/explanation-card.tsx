@@ -19,27 +19,30 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 
-interface ExplanationCardProps {
-  imageDataUris?: string[] | null;
-  analysisResult?: AnalysisResult | null;
-  isLoading?: boolean;
-}
-
-type ExplanationState = {
+export type ExplanationMap = {
   [key: string]: {
     isGenerating: boolean;
     explanation: ExplainDiagnosisOutput | null;
   };
 };
 
-export function ExplanationCard({ imageDataUris, analysisResult, isLoading }: ExplanationCardProps) {
-  const [explanations, setExplanations] = useState<ExplanationState>({});
+interface ExplanationCardProps {
+  imageDataUris?: string[] | null;
+  analysisResult?: AnalysisResult | null;
+  isLoading?: boolean;
+  explanations: ExplanationMap;
+  setExplanations: React.Dispatch<React.SetStateAction<ExplanationMap>>;
+}
+
+export function ExplanationCard({ imageDataUris, analysisResult, isLoading, explanations, setExplanations }: ExplanationCardProps) {
   const { toast } = useToast();
 
   useEffect(() => {
     // Reset explanations when a new analysis starts
-    setExplanations({});
-  }, [analysisResult]);
+    if(isLoading) {
+      setExplanations({});
+    }
+  }, [isLoading, setExplanations]);
 
   const handleExplain = async (imageUri: string, index: number) => {
     if (!analysisResult?.findings) return;

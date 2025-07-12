@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import type { AnalysisResult } from '@/app/actions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,8 +14,7 @@ import type { GenerateDetailedReportInput } from '@/ai/flows/generate-detailed-r
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import ReactMarkdown from 'react-markdown';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+
 
 interface ReportCardProps {
   imageDataUri?: string | null;
@@ -40,7 +39,6 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
-  const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const generateAndSetBasicReport = async () => {
@@ -71,33 +69,61 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
   };
 
   const handleDownloadPdf = async (detailedReportMarkdown: string) => {
+    // Dynamically import libraries to avoid SSR issues
+    const { default: jsPDF } = await import('jspdf');
+    const { default: html2canvas } = await import('html2canvas');
+
     const reportElement = document.createElement('div');
-    reportElement.innerHTML = `<div class="p-4">${detailedReportMarkdown.replace(/\n/g, '<br />')}</div>`; // A simplified conversion for PDF
+    // Simple conversion logic for now, can be improved with a proper markdown-to-html library if needed
+    const html = detailedReportMarkdown
+      .replace(/# (.+)/g, '<h1>$1</h1>')
+      .replace(/## (.+)/g, '<h2>$1</h2>')
+      .replace(/### (.+)/g, '<h3>$1</h3>')
+      .replace(/---/g, '<hr/>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\|(.+)\|(.+)\|/g, (match, header, content) => `<tr><td style="padding: 5px; border: 1px solid #ddd;">${header.trim()}</td><td style="padding: 5px; border: 1px solid #ddd;">${content.trim()}</td></tr>`)
+      .replace(/(\n(?!<tr>)(.+?))+/g, (match) => `<p>${match.trim().replace(/\n/g, '<br/>')}</p>`);
+      
+    reportElement.innerHTML = `<div style="font-family: Arial, sans-serif; font-size: 12px; padding: 20px; color: black; background-color: white; max-width: 800px;"><table>${html}</table></div>`;
     document.body.appendChild(reportElement);
 
-    const canvas = await html2canvas(reportElement, { scale: 2 });
-    document.body.removeChild(reportElement);
+    try {
+        const canvas = await html2canvas(reportElement.firstChild as HTMLElement, { scale: 2 });
+        const imgData = canvas.toDataURL('image/png');
+        
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const imgProps = pdf.getImageProperties(imgData);
+        const ratio = imgProps.width / imgProps.height;
+        const imgHeight = pdfWidth / ratio;
+        
+        let heightLeft = imgHeight;
+        let position = 0;
 
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const imgData = canvas.toDataURL('image/png');
-    const imgProps = pdf.getImageProperties(imgData);
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-    let heightLeft = pdfHeight;
-    let position = 0;
-    
-    pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-    heightLeft -= pdf.internal.pageSize.getHeight();
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
+        heightLeft -= pdfHeight;
 
-    while (heightLeft >= 0) {
-      position = heightLeft - pdfHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pdf.internal.pageSize.getHeight();
+        while (heightLeft > 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+            heightLeft -= pdfHeight;
+        }
+
+        pdf.save('radioagent_report.pdf');
+    } catch (error) {
+        console.error("Failed to generate PDF:", error);
+        toast({
+            variant: 'destructive',
+            title: 'PDF Generation Failed',
+            description: 'There was an error creating the PDF file.',
+        });
+    } finally {
+        document.body.removeChild(reportElement);
     }
-    
-    pdf.save('radioagent_report.pdf');
   };
+  
 
   const handleGenerateReport = async () => {
     if (!imageDataUri || !analysisResult) return;

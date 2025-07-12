@@ -46,6 +46,25 @@ const markdownToHtml = (markdown: string) => {
   return html;
 };
 
+// Function to extract a filename from the report
+const getPdfFilename = (markdown: string, patientName?: string): string => {
+    // Try to find the first major finding as the title
+    const findingMatch = markdown.match(/^\*   \*\*Finding:\*\* \[([^\]]+)\]/m);
+    if (findingMatch && findingMatch[1]) {
+        const title = findingMatch[1].replace(/[^a-z0-9]/gi, '_').replace(/_{2,}/g, '_');
+        return `RadioAgent_Report_${title}.pdf`;
+    }
+
+    // Fallback to patient name
+    if (patientName) {
+        const safePatientName = patientName.replace(/[^a-z0-9]/gi, '_').replace(/_{2,}/g, '_');
+        return `RadioAgent_Report_${safePatientName}.pdf`;
+    }
+
+    // Generic fallback
+    return 'RadioAgent_Detailed_Report.pdf';
+};
+
 
 interface ReportCardProps {
   imageDataUris?: string[] | null;
@@ -188,29 +207,33 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
+        
         const canvasWidth = canvas.width;
         const canvasHeight = canvas.height;
         const ratio = canvasWidth / pdfWidth;
-        const canvasHeightInPdf = canvasHeight / ratio;
+        const totalPdfPages = Math.ceil(canvasHeight / (pdfHeight * ratio));
 
-        let position = 0;
-        
-        while (position < canvasHeightInPdf) {
-            if (position > 0) {
+        for (let i = 0; i < totalPdfPages; i++) {
+            if (i > 0) {
                 pdf.addPage();
             }
-            // The y-coordinate in the source canvas needs to be in canvas pixels, not PDF mm.
-            const sourceY = position * ratio;
-            // The height of the slice to take from the canvas, in canvas pixels.
-            const sourceHeight = Math.min(canvasHeight - sourceY, pdfHeight * ratio);
-            
-            // Add the image slice to the PDF.
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, canvasHeightInPdf, undefined, 'FAST', sourceY);
-            
-            position += pdfHeight;
+            const yPosition = i * pdfHeight * ratio;
+            pdf.addImage(
+                imgData,
+                'PNG',
+                0, // x position in PDF
+                0, // y position in PDF
+                pdfWidth, // width of image in PDF
+                canvasHeight / ratio, // height of image in PDF
+                undefined,
+                'FAST',
+                // The following defines the slice of the canvas to render
+                yPosition // The y-coordinate in the source canvas
+            );
         }
 
-        pdf.save('RadioAgent_Detailed_Report.pdf');
+        const filename = getPdfFilename(detailedReportMarkdown, patientInfo.patientName);
+        pdf.save(filename);
     } catch (error) {
         console.error("Failed to generate PDF:", error);
         toast({

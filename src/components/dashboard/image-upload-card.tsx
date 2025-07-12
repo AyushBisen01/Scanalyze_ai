@@ -5,25 +5,26 @@ import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { FileUp, X, CheckCircle, Loader2 } from 'lucide-react';
+import { FileUp, X, CheckCircle, Loader2, BrainCircuit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const MAX_FILES = 30;
 
 interface ImageUploadCardProps {
-  onImageUpload: (dataUris: string[]) => void;
+  onAnalyze: (dataUris: string[]) => void;
   isAnalyzing: boolean;
   onClear: () => void;
   hasImages: boolean;
 }
 
-export function ImageUploadCard({ onImageUpload, isAnalyzing, onClear, hasImages }: ImageUploadCardProps) {
-  const [previews, setPreviews] = useState<string[]>([]);
+export function ImageUploadCard({ onAnalyze, isAnalyzing, onClear, hasImages }: ImageUploadCardProps) {
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const { toast } = useToast();
 
   const handleFiles = (files: FileList | null) => {
+    if (isAnalyzing) return;
     if (!files || files.length === 0) return;
 
     if (files.length > MAX_FILES) {
@@ -40,6 +41,8 @@ export function ImageUploadCard({ onImageUpload, isAnalyzing, onClear, hasImages
     let processedFiles = 0;
 
     const fileArray = Array.from(files);
+    
+    onClear(); // Clear previous state before processing new files
 
     fileArray.forEach(file => {
       if (file.type.startsWith('image/')) {
@@ -51,19 +54,23 @@ export function ImageUploadCard({ onImageUpload, isAnalyzing, onClear, hasImages
           processedFiles++;
 
           if (processedFiles === fileArray.length) {
-            setPreviews(newPreviews);
-            onImageUpload(dataUris);
+            setSelectedImages(newPreviews);
           }
         };
         reader.readAsDataURL(file);
       } else {
         processedFiles++;
          if (processedFiles === fileArray.length) {
-            setPreviews(newPreviews);
-            onImageUpload(dataUris);
+            setSelectedImages(newPreviews);
           }
       }
     });
+  };
+  
+  const handleAnalyzeClick = () => {
+    if (selectedImages.length > 0) {
+      onAnalyze(selectedImages);
+    }
   };
 
   const onDragEnter = useCallback((e: DragEvent<HTMLDivElement>) => {
@@ -91,10 +98,10 @@ export function ImageUploadCard({ onImageUpload, isAnalyzing, onClear, hasImages
       handleFiles(e.dataTransfer.files);
       e.dataTransfer.clearData();
     }
-  }, []);
+  }, [onClear]);
 
   const handleClear = () => {
-    setPreviews([]);
+    setSelectedImages([]);
     onClear();
   };
   
@@ -103,7 +110,7 @@ export function ImageUploadCard({ onImageUpload, isAnalyzing, onClear, hasImages
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Upload Medical Images</span>
-          {hasImages && (
+          {(hasImages || selectedImages.length > 0) && (
             <Button variant="ghost" size="icon" onClick={handleClear} disabled={isAnalyzing}>
               <X className="h-4 w-4" />
             </Button>
@@ -112,7 +119,7 @@ export function ImageUploadCard({ onImageUpload, isAnalyzing, onClear, hasImages
         <CardDescription>Select or drag and drop multiple images (up to {MAX_FILES}). The AI will analyze the entire series.</CardDescription>
       </CardHeader>
       <CardContent>
-        {!hasImages ? (
+        {selectedImages.length === 0 ? (
           <div
             className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-200 ${
               isDragging ? 'border-primary bg-accent' : 'border-border'
@@ -142,29 +149,35 @@ export function ImageUploadCard({ onImageUpload, isAnalyzing, onClear, hasImages
             </label>
           </div>
         ) : (
-          <div>
+          <div className="space-y-4">
             <div className="flex items-center mb-4">
-               {isAnalyzing ? (
-                  <div className="flex items-center space-x-2 text-muted-foreground">
-                    <Loader2 className="h-5 w-5 animate-spin"/>
-                    <span>Analyzing {previews.length} image(s)...</span>
-                  </div>
-              ) : (
                  <div className="flex items-center space-x-2 text-green-600">
                     <CheckCircle className="h-5 w-5"/>
-                    <span>{previews.length} image(s) ready for analysis.</span>
+                    <span>{selectedImages.length} image(s) selected and ready.</span>
                   </div>
-              )}
             </div>
             <ScrollArea className="h-48 w-full">
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 pr-4">
-                {previews.map((src, index) => (
+                {selectedImages.map((src, index) => (
                   <div key={index} className="relative aspect-square rounded-md overflow-hidden border">
                     <Image src={src} alt={`Medical scan preview ${index + 1}`} layout="fill" objectFit="cover" data-ai-hint="xray scan" />
                   </div>
                 ))}
               </div>
             </ScrollArea>
+             <Button onClick={handleAnalyzeClick} disabled={isAnalyzing || selectedImages.length === 0} className="w-full">
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <BrainCircuit className="mr-2 h-4 w-4"/>
+                  Analyze {selectedImages.length} Image(s)
+                </>
+              )}
+            </Button>
           </div>
         )}
       </CardContent>

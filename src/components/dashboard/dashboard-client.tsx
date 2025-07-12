@@ -24,7 +24,9 @@ export function DashboardClient() {
     setIsAnalyzing(false);
   };
 
-  const handleImageUpload = async (dataUris: string[]) => {
+  const handleAnalysis = async (dataUris: string[]) => {
+    // We call resetState here to clear any previous analysis results
+    // before starting a new one.
     resetState();
     setImageDataUris(dataUris);
     setIsAnalyzing(true);
@@ -44,14 +46,16 @@ export function DashboardClient() {
     setIsAnalyzing(false);
   };
 
+  const hasImages = !!(imageDataUris && imageDataUris.length > 0);
+
   return (
     <div className="container mx-auto max-w-7xl py-4 sm:py-6 md:py-8">
       <div className="grid grid-cols-1 gap-6">
         <ImageUploadCard
-          onImageUpload={handleImageUpload}
+          onAnalyze={handleAnalysis}
           isAnalyzing={isAnalyzing}
           onClear={resetState}
-          hasImages={!!(imageDataUris && imageDataUris.length > 0)}
+          hasImages={hasImages}
         />
 
         {(isAnalyzing || analysisResult) && (

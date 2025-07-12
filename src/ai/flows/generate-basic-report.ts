@@ -7,8 +7,7 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-import { GenerateBasicReportInputSchema, GenerateBasicReportOutputSchema, type GenerateBasicReportInput, type GenerateBasicReportOutput } from '@/app/actions';
+import { GenerateBasicReportInputSchema, GenerateBasicReportOutputSchema, type GenerateBasicReportInput, type GenerateBasicReportOutput } from '@/app/types';
 
 
 export async function generateBasicReport(

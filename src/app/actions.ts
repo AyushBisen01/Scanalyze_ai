@@ -33,7 +33,7 @@ export async function performAnalysisAction(
     };
   } catch (error) {
     console.error('Error in performAnalysisAction:', error);
-    return { success: false, error: 'An error occurred during image analysis.' };
+    return { success: false; error: 'An error occurred during image analysis.' };
   }
 }
 

@@ -60,7 +60,7 @@ export async function generateReportAction(
   input: GenerateDetailedReportInput
 ): Promise<{ success: true, data: GenerateDetailedReportOutput } | { success: false, error: string }> {
   try {
-    const report = await generateReportAction(input);
+    const report = await generateDetailedReport(input);
     return { success: true, data: report };
   } catch (error) {
     console.error('Error in generateReportAction:', error);

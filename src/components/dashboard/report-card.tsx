@@ -1,28 +1,26 @@
 'use client';
 
 import { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
 import type { AnalysisResult } from '@/app/actions';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { FileText, Download, Printer, Loader2, Sparkles, User, Info, Calendar, Stethoscope as StethoscopeIcon } from 'lucide-react';
+import { FileText, Download, Loader2, Sparkles, User, Info, Calendar, Stethoscope as StethoscopeIcon } from 'lucide-react';
 import { generateReportAction } from '@/app/actions';
 import type { GenerateDetailedReportOutput, GenerateDetailedReportInput } from '@/ai/flows/generate-detailed-report';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
 interface ReportCardProps {
   imageDataUri?: string | null;
   analysisResult?: AnalysisResult | null;
-  detailedReport?: GenerateDetailedReportOutput | null;
-  setDetailedReport: (report: GenerateDetailedReportOutput | null) => void;
   isLoading?: boolean;
 }
 
-export function ReportCard({ imageDataUri, analysisResult, detailedReport, setDetailedReport, isLoading }: ReportCardProps) {
+export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCardProps) {
   const [patientInfo, setPatientInfo] = useState({
     patientName: '',
     patientId: '',
@@ -36,40 +34,17 @@ export function ReportCard({ imageDataUri, analysisResult, detailedReport, setDe
     previousScanData: '',
   });
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
     setPatientInfo((prev) => ({ ...prev, [id]: value }));
   };
-
-  const handleGenerateReport = async () => {
-    if (!imageDataUri || !analysisResult) return;
-    setIsGenerating(true);
-    setDetailedReport(null);
-
-    const input: GenerateDetailedReportInput = {
-      imageDataUri,
-      ...patientInfo,
-    };
-
-    const result = await generateReportAction(input);
-
-    if (result.success) {
-      setDetailedReport(result.data);
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Report Generation Failed',
-        description: result.error,
-      });
-    }
-    setIsGenerating(false);
-  };
-
-  const handleDownloadTxt = () => {
-    if (!detailedReport) return;
-    const blob = new Blob([detailedReport.markdownReport], { type: 'text/markdown;charset=utf-8' });
+  
+  const handleDownloadTxt = (report: GenerateDetailedReportOutput) => {
+    if (!report) return;
+    const blob = new Blob([report.markdownReport], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -80,36 +55,33 @@ export function ReportCard({ imageDataUri, analysisResult, detailedReport, setDe
     URL.revokeObjectURL(url);
   };
 
-  const handlePrint = () => {
-    const printableArea = document.getElementById('printable-report');
-    if (printableArea) {
-      const printWindow = window.open('', '', 'height=800,width=1000');
-      printWindow?.document.write('<html><head><title>RadioAgent Report</title>');
-      // Inject styles
-      const styles = Array.from(document.styleSheets)
-        .map((styleSheet) => {
-          try {
-            return Array.from(styleSheet.cssRules)
-              .map((rule) => rule.cssText)
-              .join('');
-          } catch (e) {
-            console.warn('Could not read stylesheet rules', e);
-            return '';
-          }
-        })
-        .join('');
-      printWindow?.document.write(`<style>${styles}</style>`);
-      printWindow?.document.write('<style>body { padding: 2rem; } @page { size: auto; margin: 0; } .no-print { display: none; }</style>');
-      printWindow?.document.write('</head><body>');
-      printWindow?.document.write(printableArea.innerHTML);
-      printWindow?.document.write('</body></html>');
-      printWindow?.document.close();
-      printWindow?.focus();
-      setTimeout(() => {
-         printWindow?.print();
-         printWindow?.close();
-      }, 250);
+
+  const handleGenerateReport = async () => {
+    if (!imageDataUri || !analysisResult) return;
+    setIsGenerating(true);
+
+    const input: GenerateDetailedReportInput = {
+      imageDataUri,
+      ...patientInfo,
+    };
+
+    const result = await generateReportAction(input);
+
+    if (result.success) {
+      toast({
+        title: "Report Generated",
+        description: "Your report is downloading.",
+      });
+      handleDownloadTxt(result.data);
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Report Generation Failed',
+        description: result.error,
+      });
     }
+    setIsGenerating(false);
+    setIsDialogOpen(false); // Close the dialog
   };
 
   if (isLoading) {
@@ -120,7 +92,6 @@ export function ReportCard({ imageDataUri, analysisResult, detailedReport, setDe
           <Skeleton className="h-4 w-1/2" />
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-24 w-full" />
           <Skeleton className="h-10 w-full mt-4" />
         </CardContent>
       </Card>
@@ -134,66 +105,58 @@ export function ReportCard({ imageDataUri, analysisResult, detailedReport, setDe
           <FileText className="w-5 h-5 text-primary" />
           <span>Detailed Report</span>
         </CardTitle>
-        <CardDescription>Enter patient information to generate a comprehensive clinical report.</CardDescription>
+        <CardDescription>Generate and download a comprehensive clinical report.</CardDescription>
       </CardHeader>
-      <CardContent className="flex-grow space-y-4">
-        {!detailedReport ? (
-          <div className="space-y-4">
-            <h3 className="font-semibold text-lg flex items-center gap-2"><User className="w-5 h-5 text-primary" /> Patient Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><Label htmlFor="patientName">Patient Name</Label><Input id="patientName" value={patientInfo.patientName} onChange={handleInputChange} placeholder="John Doe" disabled={isGenerating} /></div>
-              <div><Label htmlFor="patientId">Patient ID</Label><Input id="patientId" value={patientInfo.patientId} onChange={handleInputChange} placeholder="PID-12345" disabled={isGenerating} /></div>
-              <div><Label htmlFor="dateOfBirth">Date of Birth</Label><Input id="dateOfBirth" type="date" value={patientInfo.dateOfBirth} onChange={handleInputChange} disabled={isGenerating} /></div>
-              <div><Label htmlFor="gender">Gender</Label><Input id="gender" value={patientInfo.gender} onChange={handleInputChange} placeholder="Male" disabled={isGenerating} /></div>
-              <div><Label htmlFor="referringPhysician">Referring Physician</Label><Input id="referringPhysician" value={patientInfo.referringPhysician} onChange={handleInputChange} placeholder="Dr. Smith" disabled={isGenerating} /></div>
-              <div><Label htmlFor="hospital">Hospital / Unit</Label><Input id="hospital" value={patientInfo.hospital} onChange={handleInputChange} placeholder="City General Hospital" disabled={isGenerating} /></div>
-              <div><Label htmlFor="scanDate">Scan Date</Label><Input id="scanDate" type="date" value={patientInfo.scanDate} onChange={handleInputChange} disabled={isGenerating} /></div>
-              <div><Label htmlFor="modality">Modality</Label><Input id="modality" value={patientInfo.modality} onChange={handleInputChange} placeholder="e.g., Chest X-Ray" disabled={isGenerating} /></div>
-            </div>
+      <CardContent className="flex-grow flex items-center justify-center">
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="w-full">
+              <Download className="mr-2 h-4 w-4" />
+              Generate & Download Report
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Enter Patient Information</DialogTitle>
+              <DialogDescription>
+                This information will be used to generate the detailed diagnostic report.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <h3 className="font-semibold text-lg flex items-center gap-2"><User className="w-5 h-5 text-primary" /> Patient Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><Label htmlFor="patientName">Patient Name</Label><Input id="patientName" value={patientInfo.patientName} onChange={handleInputChange} placeholder="John Doe" disabled={isGenerating} /></div>
+                <div><Label htmlFor="patientId">Patient ID</Label><Input id="patientId" value={patientInfo.patientId} onChange={handleInputChange} placeholder="PID-12345" disabled={isGenerating} /></div>
+                <div><Label htmlFor="dateOfBirth">Date of Birth</Label><Input id="dateOfBirth" type="date" value={patientInfo.dateOfBirth} onChange={handleInputChange} disabled={isGenerating} /></div>
+                <div><Label htmlFor="gender">Gender</Label><Input id="gender" value={patientInfo.gender} onChange={handleInputChange} placeholder="Male" disabled={isGenerating} /></div>
+                <div><Label htmlFor="referringPhysician">Referring Physician</Label><Input id="referringPhysician" value={patientInfo.referringPhysician} onChange={handleInputChange} placeholder="Dr. Smith" disabled={isGenerating} /></div>
+                <div><Label htmlFor="hospital">Hospital / Unit</Label><Input id="hospital" value={patientInfo.hospital} onChange={handleInputChange} placeholder="City General Hospital" disabled={isGenerating} /></div>
+                <div><Label htmlFor="scanDate">Scan Date</Label><Input id="scanDate" type="date" value={patientInfo.scanDate} onChange={handleInputChange} disabled={isGenerating} /></div>
+                <div><Label htmlFor="modality">Modality</Label><Input id="modality" value={patientInfo.modality} onChange={handleInputChange} placeholder="e.g., Chest X-Ray" disabled={isGenerating} /></div>
+              </div>
 
-            <h3 className="font-semibold text-lg flex items-center gap-2 pt-4"><StethoscopeIcon className="w-5 h-5 text-primary" /> Clinical Details</h3>
-            <div>
-              <Label htmlFor="clinicalHistory">Clinical History</Label>
-              <Textarea id="clinicalHistory" placeholder="e.g., 45-year-old male, non-smoker, history of pneumonia..." value={patientInfo.clinicalHistory} onChange={handleInputChange} className="mt-2" rows={3} disabled={isGenerating} />
+              <h3 className="font-semibold text-lg flex items-center gap-2 pt-4"><StethoscopeIcon className="w-5 h-5 text-primary" /> Clinical Details</h3>
+              <div>
+                <Label htmlFor="clinicalHistory">Clinical History</Label>
+                <Textarea id="clinicalHistory" placeholder="e.g., 45-year-old male, non-smoker, history of pneumonia..." value={patientInfo.clinicalHistory} onChange={handleInputChange} className="mt-2" rows={3} disabled={isGenerating} />
+              </div>
+              <div>
+                <Label htmlFor="previousScanData">Previous Scan Comparison Data (Optional)</Label>
+                <Textarea id="previousScanData" placeholder="e.g., Findings from last scan (Feb 2025): Lungs clear." value={patientInfo.previousScanData} onChange={handleInputChange} className="mt-2" rows={2} disabled={isGenerating} />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="previousScanData">Previous Scan Comparison Data (Optional)</Label>
-              <Textarea id="previousScanData" placeholder="e.g., Findings from last scan (Feb 2025): Lungs clear." value={patientInfo.previousScanData} onChange={handleInputChange} className="mt-2" rows={2} disabled={isGenerating} />
-            </div>
-            <Button onClick={handleGenerateReport} disabled={isGenerating} className="w-full">
-              {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-              Generate Report
-            </Button>
-          </div>
-        ) : (
-          <div id="printable-report" className="prose prose-sm dark:prose-invert max-w-none">
-            <ReactMarkdown
-              components={{
-                table: ({node, ...props}) => <table className="w-full text-left border-collapse" {...props} />,
-                th: ({node, ...props}) => <th className="border p-2 font-semibold" {...props} />,
-                td: ({node, ...props}) => <td className="border p-2" {...props} />,
-              }}
-            >
-                {detailedReport.markdownReport}
-            </ReactMarkdown>
-          </div>
-        )}
+            <DialogFooter>
+              <DialogClose asChild>
+                  <Button type="button" variant="secondary" disabled={isGenerating}>Cancel</Button>
+              </DialogClose>
+              <Button onClick={handleGenerateReport} disabled={isGenerating}>
+                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                Generate & Download
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
-      {detailedReport && (
-        <CardFooter className="flex-wrap gap-2 no-print sm:flex-nowrap">
-          <Button variant="outline" onClick={handleDownloadTxt} className="w-full sm:w-auto flex-1">
-            <Download className="mr-2 h-4 w-4" />
-            Download .md
-          </Button>
-          <Button variant="outline" onClick={handlePrint} className="w-full sm:w-auto flex-1">
-            <Printer className="mr-2 h-4 w-4" />
-            Print / Save PDF
-          </Button>
-           <Button onClick={() => setDetailedReport(null)} className="w-full sm:w-auto flex-1">
-              Generate New Report
-            </Button>
-        </CardFooter>
-      )}
     </Card>
   );
 }

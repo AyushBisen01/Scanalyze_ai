@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { FileScan } from 'lucide-react';
+import { FileScan, AlertTriangle } from 'lucide-react';
 import type { AnalysisResult } from '@/app/actions';
 
 interface AnalysisCardProps {
@@ -36,8 +36,11 @@ export function AnalysisCard({ result, isLoading }: AnalysisCardProps) {
             </div>
             <div>
               <h3 className="font-semibold text-foreground mb-2">Detected Anomalies</h3>
-              {result.anomalies && result.anomalies.toLowerCase() !== 'none' ? (
-                <Badge variant="destructive" className="bg-accent text-accent-foreground">{result.anomalies}</Badge>
+              {result.anomalies && result.anomalies.toLowerCase() !== 'none' && result.anomalies.toLowerCase() !== 'no anomalies detected' ? (
+                <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-destructive">
+                  <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                  <span className="text-sm font-semibold">{result.anomalies}</span>
+                </div>
               ) : (
                 <Badge variant="secondary">None Detected</Badge>
               )}

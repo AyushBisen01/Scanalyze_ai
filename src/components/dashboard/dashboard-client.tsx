@@ -27,7 +27,7 @@ export function DashboardClient() {
   const handleAnalysis = async (dataUris: string[]) => {
     // We call resetState here to clear any previous analysis results
     // before starting a new one.
-    resetState();
+    setAnalysisResult(null);
     setImageDataUris(dataUris);
     setIsAnalyzing(true);
     
@@ -46,31 +46,29 @@ export function DashboardClient() {
     setIsAnalyzing(false);
   };
 
-  const hasImages = !!(imageDataUris && imageDataUris.length > 0);
+  const showResults = isAnalyzing || analysisResult;
 
   return (
     <div className="container mx-auto max-w-7xl py-4 sm:py-6 md:py-8">
       <div className="grid grid-cols-1 gap-6">
-        <ImageUploadCard
-          onAnalyze={handleAnalysis}
-          isAnalyzing={isAnalyzing}
-          onClear={resetState}
-          hasImages={hasImages}
-        />
+        {!showResults && (
+            <ImageUploadCard
+            onAnalyze={handleAnalysis}
+            isAnalyzing={isAnalyzing}
+            onClear={resetState}
+            />
+        )}
 
-        {(isAnalyzing || analysisResult) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <AnalysisCard isLoading={isAnalyzing} result={analysisResult} />
-            <ExplanationCard isLoading={isAnalyzing} imageDataUris={imageDataUris} analysisResult={analysisResult} />
-          </div>
+        {showResults && (
+            <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <AnalysisCard isLoading={isAnalyzing} result={analysisResult} />
+                    <ExplanationCard isLoading={isAnalyzing} imageDataUris={imageDataUris} analysisResult={analysisResult} />
+                </div>
+                <ReportCard isLoading={isAnalyzing} imageDataUri={imageDataUris ? imageDataUris[0] : null} analysisResult={analysisResult} />
+            </>
         )}
         
-        {(isAnalyzing || analysisResult) && (
-           <div className="grid grid-cols-1 gap-6">
-             <ReportCard isLoading={isAnalyzing} imageDataUri={imageDataUris ? imageDataUris[0] : null} analysisResult={analysisResult} />
-           </div>
-        )}
-
         {analysisResult && (
           <>
             <SymptomCorrelatorCard analysisResult={analysisResult} />

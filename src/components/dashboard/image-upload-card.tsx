@@ -15,10 +15,9 @@ interface ImageUploadCardProps {
   onAnalyze: (dataUris: string[]) => void;
   isAnalyzing: boolean;
   onClear: () => void;
-  hasImages: boolean;
 }
 
-export function ImageUploadCard({ onAnalyze, isAnalyzing, onClear, hasImages }: ImageUploadCardProps) {
+export function ImageUploadCard({ onAnalyze, isAnalyzing, onClear }: ImageUploadCardProps) {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const { toast } = useToast();
@@ -106,9 +105,10 @@ export function ImageUploadCard({ onAnalyze, isAnalyzing, onClear, hasImages }: 
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Upload Medical Images</span>
-          {(hasImages || selectedImages.length > 0) && (
-            <Button variant="ghost" size="icon" onClick={handleClear} disabled={isAnalyzing}>
-              <X className="h-4 w-4" />
+          {(selectedImages.length > 0) && (
+            <Button variant="ghost" size="sm" onClick={handleClear} disabled={isAnalyzing}>
+              <X className="h-4 w-4 mr-2" />
+              Clear Selection
             </Button>
           )}
         </CardTitle>

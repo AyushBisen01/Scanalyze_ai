@@ -15,14 +15,14 @@ const AnalyzeMedicalImageInputSchema = z.object({
   photoDataUris: z
     .array(z.string())
     .describe(
-      "A series of medical images (X-ray, CT scan, MRI, ultrasound) as data URIs. Each must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+      "A series of medical images (X-ray, CT, MRI) or a video (ultrasound) as data URIs. Each must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
 });
 export type AnalyzeMedicalImageInput = z.infer<typeof AnalyzeMedicalImageInputSchema>;
 
 const AnalyzeMedicalImageOutputSchema = z.object({
-  findings: z.string().describe('Key findings from the medical image series.'),
-  anomalies: z.string().describe('Potential anomalies or areas of interest identified in the images.'),
+  findings: z.string().describe('Key findings from the medical image series or video.'),
+  anomalies: z.string().describe('Potential anomalies or areas of interest identified in the content.'),
 });
 export type AnalyzeMedicalImageOutput = z.infer<typeof AnalyzeMedicalImageOutputSchema>;
 
@@ -34,17 +34,17 @@ const prompt = ai.definePrompt({
   name: 'analyzeMedicalImagePrompt',
   input: {schema: AnalyzeMedicalImageInputSchema},
   output: {schema: AnalyzeMedicalImageOutputSchema},
-  prompt: `You are an expert radiologist specializing in analyzing series of medical images.
+  prompt: `You are an expert radiologist specializing in analyzing series of medical images and videos (like ultrasounds).
 
-You will analyze the provided series of medical images and identify potential anomalies or areas of interest. Synthesize your findings from all images into a cohesive summary.
+You will analyze the provided series of images or video and identify potential anomalies or areas of interest. Synthesize your findings from all content into a cohesive summary.
 
-Use the following as the primary source of information about the medical image series.
+Use the following as the primary source of information. The content could be a series of static images or a video file.
 
 {{#each photoDataUris}}
-Image {{index}}: {{media url=this}}
+Content piece {{index}}: {{media url=this}}
 {{/each}}
 
-Analyze the entire image series and provide key findings and potential anomalies.
+Analyze the entire series/video and provide key findings and potential anomalies.
 `,
 });
 

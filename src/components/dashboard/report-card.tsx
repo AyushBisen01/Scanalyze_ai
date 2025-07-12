@@ -72,43 +72,53 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
     const { default: html2canvas } = await import('html2canvas');
 
     const reportElement = document.createElement('div');
-    // Improved markdown to html conversion
-    const html = detailedReportMarkdown
-      .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-      .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-      .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-      .replace(/^\* (.*$)/gm, '<li>$1</li>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/---/g, '<hr/>')
-      .replace(/\|(.+)\|(.+)\|/g, (match, header, content) => `<tr><td style="padding: 5px; border: 1px solid #ddd;">${header.trim()}</td><td style="padding: 5px; border: 1px solid #ddd;">${content.trim()}</td></tr>`)
-      .replace(/(\r\n|\n|\r)/gm, '<br/>')
-      .replace(/<\/li><br\/>/g, '</li>');
-
-      
-    reportElement.innerHTML = `<div style="font-family: Arial, sans-serif; font-size: 12px; padding: 20px; color: black; background-color: white; max-width: 800px;"><table>${html}</table></div>`;
+    // Enhanced styling for the report content
+    const reportContentHtml = `<div class="prose prose-sm max-w-none p-5 font-sans">${detailedReportMarkdown}</div>`;
+    reportElement.innerHTML = reportContentHtml;
+    
+    // Append to body to render for canvas capture
     document.body.appendChild(reportElement);
 
+    // Add styles to the document head for html2canvas to use
+    const style = document.createElement('style');
+    style.innerHTML = `
+      .prose { color: #333; }
+      .prose h1, .prose h2, .prose h3 { font-weight: 600; }
+      .prose h1 { font-size: 24px; }
+      .prose h2 { font-size: 20px; }
+      .prose h3 { font-size: 18px; margin-top: 1em; }
+      .prose hr { border-top: 1px solid #ccc; margin: 1em 0; }
+      .prose ul { list-style-type: disc; padding-left: 20px; }
+      .prose li { margin-bottom: 0.5em; }
+      .prose strong { font-weight: bold; }
+      .prose blockquote { border-left: 4px solid #ccc; padding-left: 1em; font-style: italic; }
+      .prose table { width: 100%; border-collapse: collapse; }
+      .prose th, .prose td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+      .prose th { background-color: #f2f2f2; }
+    `;
+    document.head.appendChild(style);
+
     try {
-        const canvas = await html2canvas(reportElement.firstChild as HTMLElement, { scale: 2 });
+        const canvas = await html2canvas(reportElement, { scale: 2 });
         const imgData = canvas.toDataURL('image/png');
         
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
         const imgProps = pdf.getImageProperties(imgData);
-        const ratio = imgProps.width / imgProps.height;
-        let imgHeight = pdfWidth / ratio;
+        const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
         
         let heightLeft = imgHeight;
         let position = 0;
+        const pageMargin = 10;
+        const pdfHeight = pdf.internal.pageSize.getHeight() - (pageMargin * 2);
 
-        pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth-20, imgHeight-20);
+        pdf.addImage(imgData, 'PNG', pageMargin, pageMargin, pdfWidth - (pageMargin * 2), imgHeight);
         heightLeft -= pdfHeight;
 
         while (heightLeft > 0) {
-            position = heightLeft - imgHeight;
+            position -= pdfHeight;
             pdf.addPage();
-            pdf.addImage(imgData, 'PNG', 10, position-10, pdfWidth-20, imgHeight-20);
+            pdf.addImage(imgData, 'PNG', pageMargin, position, pdfWidth - (pageMargin*2), imgHeight);
             heightLeft -= pdfHeight;
         }
 
@@ -122,6 +132,7 @@ export function ReportCard({ imageDataUri, analysisResult, isLoading }: ReportCa
         });
     } finally {
         document.body.removeChild(reportElement);
+        document.head.removeChild(style);
     }
   };
   

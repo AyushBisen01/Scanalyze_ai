@@ -2,34 +2,68 @@
 
 import { useState, useCallback, type DragEvent } from 'react';
 import Image from 'next/image';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { FileUp, X, CheckCircle, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+const MAX_FILES = 30;
 
 interface ImageUploadCardProps {
-  onImageUpload: (dataUri: string) => void;
+  onImageUpload: (dataUris: string[]) => void;
   isAnalyzing: boolean;
   onClear: () => void;
-  hasImage: boolean;
+  hasImages: boolean;
 }
 
-export function ImageUploadCard({ onImageUpload, isAnalyzing, onClear, hasImage }: ImageUploadCardProps) {
-  const [preview, setPreview] = useState<string | null>(null);
+export function ImageUploadCard({ onImageUpload, isAnalyzing, onClear, hasImages }: ImageUploadCardProps) {
+  const [previews, setPreviews] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const [fileName, setFileName] = useState<string>('');
+  const { toast } = useToast();
 
-  const handleFileChange = (file: File | null) => {
-    if (file && file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const dataUri = reader.result as string;
-        setPreview(dataUri);
-        setFileName(file.name);
-        onImageUpload(dataUri);
-      };
-      reader.readAsDataURL(file);
+  const handleFiles = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    if (files.length > MAX_FILES) {
+      toast({
+        variant: 'destructive',
+        title: 'Too many files',
+        description: `You can upload a maximum of ${MAX_FILES} images at a time.`,
+      });
+      return;
     }
+    
+    const dataUris: string[] = [];
+    const newPreviews: string[] = [];
+    let processedFiles = 0;
+
+    const fileArray = Array.from(files);
+
+    fileArray.forEach(file => {
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUri = reader.result as string;
+          dataUris.push(dataUri);
+          newPreviews.push(dataUri);
+          processedFiles++;
+
+          if (processedFiles === fileArray.length) {
+            setPreviews(newPreviews);
+            onImageUpload(dataUris);
+          }
+        };
+        reader.readAsDataURL(file);
+      } else {
+        processedFiles++;
+         if (processedFiles === fileArray.length) {
+            setPreviews(newPreviews);
+            onImageUpload(dataUris);
+          }
+      }
+    });
   };
 
   const onDragEnter = useCallback((e: DragEvent<HTMLDivElement>) => {
@@ -53,15 +87,14 @@ export function ImageUploadCard({ onImageUpload, isAnalyzing, onClear, hasImage 
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleFileChange(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files) {
+      handleFiles(e.dataTransfer.files);
       e.dataTransfer.clearData();
     }
-  }, [onImageUpload]);
+  }, []);
 
   const handleClear = () => {
-    setPreview(null);
-    setFileName('');
+    setPreviews([]);
     onClear();
   };
   
@@ -69,16 +102,17 @@ export function ImageUploadCard({ onImageUpload, isAnalyzing, onClear, hasImage 
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>Upload Medical Image</span>
-          {hasImage && (
+          <span>Upload Medical Images</span>
+          {hasImages && (
             <Button variant="ghost" size="icon" onClick={handleClear} disabled={isAnalyzing}>
               <X className="h-4 w-4" />
             </Button>
           )}
         </CardTitle>
+        <CardDescription>Select or drag and drop multiple images (up to {MAX_FILES}). The AI will analyze the entire series.</CardDescription>
       </CardHeader>
       <CardContent>
-        {!preview ? (
+        {!hasImages ? (
           <div
             className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-200 ${
               isDragging ? 'border-primary bg-accent' : 'border-border'
@@ -93,8 +127,9 @@ export function ImageUploadCard({ onImageUpload, isAnalyzing, onClear, hasImage 
               type="file"
               className="sr-only"
               accept="image/png, image/jpeg, image/dicom"
-              onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
+              onChange={(e) => handleFiles(e.target.files)}
               disabled={isAnalyzing}
+              multiple
             />
             <label htmlFor="file-upload" className="cursor-pointer">
               <div className="flex flex-col items-center justify-center space-y-4">
@@ -107,23 +142,29 @@ export function ImageUploadCard({ onImageUpload, isAnalyzing, onClear, hasImage 
             </label>
           </div>
         ) : (
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="relative w-48 h-48 rounded-md overflow-hidden border">
-              <Image src={preview} alt="Medical scan preview" layout="fill" objectFit="cover" data-ai-hint="xray scan" />
-            </div>
-            <div className="flex-1 flex items-center">
-              {isAnalyzing ? (
+          <div>
+            <div className="flex items-center mb-4">
+               {isAnalyzing ? (
                   <div className="flex items-center space-x-2 text-muted-foreground">
                     <Loader2 className="h-5 w-5 animate-spin"/>
-                    <span>Analyzing {fileName}...</span>
+                    <span>Analyzing {previews.length} image(s)...</span>
                   </div>
               ) : (
                  <div className="flex items-center space-x-2 text-green-600">
                     <CheckCircle className="h-5 w-5"/>
-                    <span>{fileName} ready for analysis.</span>
+                    <span>{previews.length} image(s) ready for analysis.</span>
                   </div>
               )}
             </div>
+            <ScrollArea className="h-48 w-full">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 pr-4">
+                {previews.map((src, index) => (
+                  <div key={index} className="relative aspect-square rounded-md overflow-hidden border">
+                    <Image src={src} alt={`Medical scan preview ${index + 1}`} layout="fill" objectFit="cover" data-ai-hint="xray scan" />
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
           </div>
         )}
       </CardContent>

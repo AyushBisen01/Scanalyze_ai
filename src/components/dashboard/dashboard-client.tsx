@@ -12,24 +12,24 @@ import { SymptomCorrelatorCard } from './symptom-correlator-card';
 import { performAnalysisAction } from '@/app/actions';
 
 export function DashboardClient() {
-  const [imageDataUri, setImageDataUri] = useState<string | null>(null);
+  const [imageDataUris, setImageDataUris] = useState<string[] | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
 
   const resetState = () => {
-    setImageDataUri(null);
+    setImageDataUris(null);
     setAnalysisResult(null);
     setIsAnalyzing(false);
   };
 
-  const handleImageUpload = async (dataUri: string) => {
+  const handleImageUpload = async (dataUris: string[]) => {
     resetState();
-    setImageDataUri(dataUri);
+    setImageDataUris(dataUris);
     setIsAnalyzing(true);
     
-    const result = await performAnalysisAction(dataUri);
+    const result = await performAnalysisAction(dataUris);
 
     if (result.success) {
       setAnalysisResult(result.data);
@@ -39,7 +39,7 @@ export function DashboardClient() {
         title: 'Analysis Failed',
         description: result.error,
       });
-      setImageDataUri(null);
+      setImageDataUris(null);
     }
     setIsAnalyzing(false);
   };
@@ -51,19 +51,19 @@ export function DashboardClient() {
           onImageUpload={handleImageUpload}
           isAnalyzing={isAnalyzing}
           onClear={resetState}
-          hasImage={!!imageDataUri}
+          hasImages={!!(imageDataUris && imageDataUris.length > 0)}
         />
 
         {(isAnalyzing || analysisResult) && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <AnalysisCard isLoading={isAnalyzing} result={analysisResult} />
-            <ExplanationCard isLoading={isAnalyzing} imageDataUri={imageDataUri} analysisResult={analysisResult} />
+            <ExplanationCard isLoading={isAnalyzing} imageDataUri={imageDataUris ? imageDataUris[0] : null} analysisResult={analysisResult} />
           </div>
         )}
         
         {(isAnalyzing || analysisResult) && (
            <div className="grid grid-cols-1 gap-6">
-             <ReportCard isLoading={isAnalyzing} imageDataUri={imageDataUri} analysisResult={analysisResult} />
+             <ReportCard isLoading={isAnalyzing} imageDataUri={imageDataUris ? imageDataUris[0] : null} analysisResult={analysisResult} />
            </div>
         )}
 

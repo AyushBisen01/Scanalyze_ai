@@ -10,7 +10,7 @@ import type { ExplainDiagnosisInput, ExplainDiagnosisOutput } from '@/ai/flows/e
 import { correlateSymptoms } from '@/ai/flows/correlate-symptoms';
 import type { CorrelateSymptomsInput, CorrelateSymptomsOutput } from '@/ai/flows/correlate-symptoms';
 import { generateBasicReport } from '@/ai/flows/generate-basic-report';
-import { GenerateBasicReportOutputSchema, type GenerateBasicReportOutput, type GenerateBasicReportInput } from '@/app/types';
+import { type GenerateBasicReportOutput, type GenerateBasicReportInput } from '@/app/types';
 
 export type AnalysisResult = {
   findings: string;
@@ -18,12 +18,17 @@ export type AnalysisResult = {
 };
 
 export async function performAnalysisAction(
-  imageDataUri: string
+  imageDataUris: string[]
 ): Promise<{ success: true, data: AnalysisResult } | { success: false, error: string }> {
+  if (imageDataUris.length === 0) {
+    return { success: false, error: 'No images provided for analysis.' };
+  }
   try {
     const [analysis, anomaliesResult] = await Promise.all([
-      analyzeMedicalImage({ photoDataUri: imageDataUri }),
-      detectAnomalies({ photoDataUri: imageDataUri }),
+      analyzeMedicalImage({ photoDataUris: imageDataUris }),
+      // Pass only the first image to anomaly detection for now to avoid overwhelming it,
+      // as the main analysis will synthesize findings from all images.
+      detectAnomalies({ photoDataUri: imageDataUris[0] }),
     ]);
 
     return {
@@ -40,10 +45,10 @@ export async function performAnalysisAction(
 }
 
 export async function generateBasicReportAction(
-  analysisResult: AnalysisResult
+  input: GenerateBasicReportInput
 ): Promise<{ success: true, data: GenerateBasicReportOutput } | { success: false, error: string }> {
   try {
-    const report = await generateBasicReport(analysisResult);
+    const report = await generateBasicReport(input);
     return { success: true, data: report };
   } catch (error) {
     console.error('Error in generateBasicReportAction:', error);
@@ -55,7 +60,7 @@ export async function generateReportAction(
   input: GenerateDetailedReportInput
 ): Promise<{ success: true, data: GenerateDetailedReportOutput } | { success: false, error: string }> {
   try {
-    const report = await generateDetailedReport(input);
+    const report = await generateReportAction(input);
     return { success: true, data: report };
   } catch (error) {
     console.error('Error in generateReportAction:', error);

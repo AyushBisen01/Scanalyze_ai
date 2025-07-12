@@ -12,17 +12,17 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const AnalyzeMedicalImageInputSchema = z.object({
-  photoDataUri: z
-    .string()
+  photoDataUris: z
+    .array(z.string())
     .describe(
-      "A medical image (X-ray, CT scan, MRI, ultrasound) as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+      "A series of medical images (X-ray, CT scan, MRI, ultrasound) as data URIs. Each must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
 });
 export type AnalyzeMedicalImageInput = z.infer<typeof AnalyzeMedicalImageInputSchema>;
 
 const AnalyzeMedicalImageOutputSchema = z.object({
-  findings: z.string().describe('Key findings from the medical image.'),
-  anomalies: z.string().describe('Potential anomalies or areas of interest identified in the image.'),
+  findings: z.string().describe('Key findings from the medical image series.'),
+  anomalies: z.string().describe('Potential anomalies or areas of interest identified in the images.'),
 });
 export type AnalyzeMedicalImageOutput = z.infer<typeof AnalyzeMedicalImageOutputSchema>;
 
@@ -34,16 +34,18 @@ const prompt = ai.definePrompt({
   name: 'analyzeMedicalImagePrompt',
   input: {schema: AnalyzeMedicalImageInputSchema},
   output: {schema: AnalyzeMedicalImageOutputSchema},
-  prompt: `You are an expert radiologist specializing in analyzing medical images.
+  prompt: `You are an expert radiologist specializing in analyzing series of medical images.
 
-You will analyze the provided medical image and identify potential anomalies or areas of interest.
+You will analyze the provided series of medical images and identify potential anomalies or areas of interest. Synthesize your findings from all images into a cohesive summary.
 
-Use the following as the primary source of information about the medical image.
+Use the following as the primary source of information about the medical image series.
 
-Image: {{media url=photoDataUri}}
+{{#each photoDataUris}}
+Image {{index}}: {{media url=this}}
+{{/each}}
 
-Analyze the medical image and provide key findings and potential anomalies.
-`, // Removed reference to MedGemma because it's a black box/implementation detail not exposed to the prompt.
+Analyze the entire image series and provide key findings and potential anomalies.
+`,
 });
 
 const analyzeMedicalImageFlow = ai.defineFlow(

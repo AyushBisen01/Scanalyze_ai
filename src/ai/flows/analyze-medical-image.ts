@@ -21,7 +21,7 @@ const AnalyzeMedicalImageInputSchema = z.object({
 export type AnalyzeMedicalImageInput = z.infer<typeof AnalyzeMedicalImageInputSchema>;
 
 const AnalyzeMedicalImageOutputSchema = z.object({
-  findings: z.string().describe('A concise summary (max 20 words) of the most critical finding, including the likely disease and its potential progression.'),
+  findings: z.string().describe('A mandatory, concise summary (max 20 words) stating the most likely disease, any secondary findings, and its potential progression.'),
   anomalies: z.string().describe('Potential anomalies or areas of interest identified in the content.'),
 });
 export type AnalyzeMedicalImageOutput = z.infer<typeof AnalyzeMedicalImageOutputSchema>;
@@ -34,26 +34,23 @@ const prompt = ai.definePrompt({
   name: 'analyzeMedicalImagePrompt',
   input: {schema: AnalyzeMedicalImageInputSchema},
   output: {schema: AnalyzeMedicalImageOutputSchema},
-  prompt: `You are an expert radiologist specializing in analyzing series of medical images and videos (like ultrasounds).
-
-You will analyze the provided series of images or video. Your response must adhere to the following strict instructions:
+  prompt: `You are an expert radiologist. Analyze the provided medical content.
 
 **Instructions for 'findings' output:**
-- Your response for 'findings' MUST be a single, concise sentence.
-- It MUST be a maximum of 20 words.
-- It MUST state the most likely disease and its potential for progression if untreated.
-- Example: High-likelihood signs of bacterial pneumonia in the left lung, with potential for progression to pleural effusion.
+Your response is MANDATORY and must be a single, concise sentence of 20 words or less. It MUST follow this structure:
+1.  Start with the most likely primary diagnosis.
+2.  Follow with any significant secondary finding or observation.
+3.  Conclude with the risk or potential for progression if left untreated.
+Example: "Likely Pneumonia with severe left lung infection; possible early lung tumor—risk of pleural effusion if untreated."
 
 **Instructions for 'anomalies' output:**
 - List any other observed anomalies or areas of interest.
 
-Use the following as the primary source of information. The content could be a series of static images or a video file.
+Analyze the entire series/video and provide your response according to these strict instructions.
 
 {{#each photoDataUris}}
 Content piece {{index}}: {{media url=.}}
 {{/each}}
-
-Analyze the entire series/video and provide your response according to the instructions.
 `,
 });
 

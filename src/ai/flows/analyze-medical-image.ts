@@ -41,7 +41,7 @@ You will analyze the provided series of images or video and identify potential a
 Use the following as the primary source of information. The content could be a series of static images or a video file.
 
 {{#each photoDataUris}}
-Content piece {{index}}: {{media url=this}}
+Content piece {{index}}: {{media url=.}}
 {{/each}}
 
 Analyze the entire series/video and provide key findings and potential anomalies.

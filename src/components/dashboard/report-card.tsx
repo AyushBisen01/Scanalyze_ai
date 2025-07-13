@@ -96,7 +96,7 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
     const pdfHeight = pdf.internal.pageSize.getHeight();
     const contentWidth = pdfWidth - (margin * 2);
     let yPos = margin;
-    const LINE_HEIGHT_MULTIPLIER = 1.2;
+    const LINE_HEIGHT_MULTIPLIER = 1.5;
 
     // --- PDF HELPER FUNCTIONS ---
     const checkPageBreak = (spaceNeeded: number) => {
@@ -123,9 +123,9 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
         const lines = pdf.splitTextToSize(text, contentWidth - indent - (isListItem ? 5 : 0));
         
         lines.forEach((line: string) => {
-           checkPageBreak(fontSize * 0.35 * LINE_HEIGHT_MULTIPLIER + 3); 
+           checkPageBreak(fontSize * 0.35 * LINE_HEIGHT_MULTIPLIER + 4); 
            pdf.text(line, effectiveIndent, yPos);
-           yPos += (fontSize * 0.35 * LINE_HEIGHT_MULTIPLIER) + 3; // Line height - increased spacing
+           yPos += (fontSize * 0.35 * LINE_HEIGHT_MULTIPLIER) + 4; // Line height - increased spacing
         });
 
         yPos += 2;
@@ -138,7 +138,7 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
       pdf.setFontSize(14);
       pdf.setTextColor(0, 0, 0);
       pdf.text(title, margin, yPos);
-      yPos += 7;
+      yPos += 8;
       pdf.setDrawColor(220, 220, 220); 
       pdf.line(margin, yPos, pdfWidth - margin, yPos);
       yPos += 10;
@@ -171,7 +171,7 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
         pdf.text(key, margin, yPos);
         pdf.setFont('helvetica', 'normal');
         pdf.text(value, margin + 50, yPos);
-        yPos += 7;
+        yPos += 8;
     })
     yPos += 5;
 
@@ -217,7 +217,7 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
       
       // Logic to skip Patient Info/History sections from markdown
       const lowerTrimmedLine = trimmedLine.toLowerCase();
-       if (lowerTrimmedLine.includes('patient information') || lowerTrimmedLine.includes('clinical history') || lowerTrimmedLine.includes('findings summary')) {
+       if (lowerTrimmedLine.includes('patient information') || lowerTrimmedLine.includes('clinical history')) {
         skipSection = true;
         continue;
       }
@@ -241,7 +241,7 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
           checkPageBreak(15);
           yPos += 8;
           addWrappedText(trimmedLine.substring(4).replace(/🫁|❤️|🌬️|🦴/g, '').replace(/\*\*/g, '').trim(), { isBold: true, fontSize: 12, isHeading: true });
-          yPos += 4;
+          yPos += 6;
       } else if (trimmedLine.startsWith('*   **')) {
           const match = trimmedLine.match(/\*\s+\*\*(.*?):\*\*\s*(.*)/);
           if (match) {
@@ -258,7 +258,7 @@ export function ReportCard({ imageDataUris, analysisResult, isLoading, explanati
               const valueX = margin + valueIndent;
               
               const FONT_SIZE = 10;
-              const LINE_HEIGHT = FONT_SIZE * 0.35 * 1.5; // Increased line height
+              const LINE_HEIGHT = FONT_SIZE * 0.35 * 1.8; // Increased line height
 
               const keyLines = pdf.splitTextToSize(`${key}: `, valueIndent - 5);
               const valueLines = pdf.splitTextToSize(value, contentWidth - valueIndent);

@@ -36,7 +36,14 @@ const prompt = ai.definePrompt({
   output: {schema: AnalyzeMedicalImageOutputSchema},
   prompt: `You are an expert radiologist specializing in analyzing series of medical images and videos (like ultrasounds).
 
-You will analyze the provided series of images or video and identify potential anomalies or areas of interest. Synthesize your findings from all content into a cohesive summary.
+You will analyze the provided series of images or video and identify potential anomalies or areas of interest. Your response for 'findings' must be detailed and clinically actionable.
+
+**Instructions for 'findings' output:**
+- Provide a high-level summary of the most critical findings.
+- State the likelihood of the diagnosis (e.g., "high-likelihood signs of...").
+- Specify the affected area as precisely as possible (e.g., "left lower lung lobe").
+- If applicable, suggest potential diagnoses for detected anomalies (e.g., "may indicate an early-stage lung neoplasm or granuloma").
+- Include a brief, predictive statement about potential progression if untreated (e.g., "potential progression toward pleural effusion within 5–7 days").
 
 Use the following as the primary source of information. The content could be a series of static images or a video file.
 
@@ -44,7 +51,7 @@ Use the following as the primary source of information. The content could be a s
 Content piece {{index}}: {{media url=.}}
 {{/each}}
 
-Analyze the entire series/video and provide key findings and potential anomalies.
+Analyze the entire series/video and provide key findings and potential anomalies according to the instructions.
 `,
 });
 

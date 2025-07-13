@@ -21,7 +21,7 @@ const AnalyzeMedicalImageInputSchema = z.object({
 export type AnalyzeMedicalImageInput = z.infer<typeof AnalyzeMedicalImageInputSchema>;
 
 const AnalyzeMedicalImageOutputSchema = z.object({
-  findings: z.string().describe('Key findings from the medical image series or video.'),
+  findings: z.string().describe('A concise summary (max 20 words) of the most critical finding, including the likely disease and its potential progression.'),
   anomalies: z.string().describe('Potential anomalies or areas of interest identified in the content.'),
 });
 export type AnalyzeMedicalImageOutput = z.infer<typeof AnalyzeMedicalImageOutputSchema>;
@@ -36,14 +36,16 @@ const prompt = ai.definePrompt({
   output: {schema: AnalyzeMedicalImageOutputSchema},
   prompt: `You are an expert radiologist specializing in analyzing series of medical images and videos (like ultrasounds).
 
-You will analyze the provided series of images or video and identify potential anomalies or areas of interest. Your response for 'findings' must be detailed and clinically actionable.
+You will analyze the provided series of images or video. Your response must adhere to the following strict instructions:
 
 **Instructions for 'findings' output:**
-- Provide a high-level summary of the most critical findings.
-- State the likelihood of the diagnosis (e.g., "high-likelihood signs of...").
-- Specify the affected area as precisely as possible (e.g., "left lower lung lobe").
-- If applicable, suggest potential diagnoses for detected anomalies (e.g., "may indicate an early-stage lung neoplasm or granuloma").
-- Include a brief, predictive statement about potential progression if untreated (e.g., "potential progression toward pleural effusion within 5–7 days").
+- Your response for 'findings' MUST be a single, concise sentence.
+- It MUST be a maximum of 20 words.
+- It MUST state the most likely disease and its potential for progression if untreated.
+- Example: High-likelihood signs of bacterial pneumonia in the left lung, with potential for progression to pleural effusion.
+
+**Instructions for 'anomalies' output:**
+- List any other observed anomalies or areas of interest.
 
 Use the following as the primary source of information. The content could be a series of static images or a video file.
 
@@ -51,7 +53,7 @@ Use the following as the primary source of information. The content could be a s
 Content piece {{index}}: {{media url=.}}
 {{/each}}
 
-Analyze the entire series/video and provide key findings and potential anomalies according to the instructions.
+Analyze the entire series/video and provide your response according to the instructions.
 `,
 });
 

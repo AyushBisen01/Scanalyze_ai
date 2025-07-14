@@ -38,6 +38,9 @@ export async function performAnalysisAction(
     };
   } catch (error) {
     console.error('Error in performAnalysisAction:', error);
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      return { success: false, error: 'Analysis failed: Could not connect to the AI service. Is the Genkit server running? (npm run genkit:watch)' };
+    }
     return { success: false, error: 'An error occurred during image analysis.' };
   }
 }

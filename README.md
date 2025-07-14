@@ -16,6 +16,18 @@
 
 ---
 
+## Workflow
+
+1.  **Upload**: Start by uploading one or more medical images or videos.
+2.  **Analyze**: The AI analyzes the entire series, identifying key findings and anomalies.
+3.  **Review**: An initial report is generated. You can dive deeper with:
+    *   **Explainable AI**: See heatmaps showing what the AI focused on.
+    *   **Symptom Correlator**: Add clinical symptoms for a differential diagnosis.
+    *   **Conversational AI**: Ask clarifying questions.
+4.  **Download**: Generate and download a comprehensive PDF report with all the details.
+
+---
+
 ## 🛠️ Tech Stack
 
 <p align="center">

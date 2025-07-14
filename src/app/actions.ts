@@ -81,6 +81,14 @@ export async function getConversationalResponse(
       Context: "${context}"
       
       Question: "${question}"`,
+      config: {
+        safetySettings: [
+          {
+            category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+            threshold: 'BLOCK_ONLY_HIGH',
+          },
+        ],
+      },
     });
     return { success: true, data: response.text };
   } catch (error) {

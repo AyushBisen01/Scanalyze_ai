@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useCallback, type DragEvent } from 'react';
@@ -13,7 +14,7 @@ const MAX_FILES = 30;
 
 interface UploadedFile {
   dataUri: string;
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'dicom';
 }
 
 interface ImageUploadCardProps {
@@ -47,11 +48,18 @@ export function ImageUploadCard({ onAnalyze, isAnalyzing, onClear }: ImageUpload
 
     fileArray.forEach(file => {
       const fileType = file.type.split('/')[0];
-      if (fileType === 'image' || fileType === 'video') {
+      const isDicom = file.type === 'application/dicom' || file.name.endsWith('.dcm');
+
+      if (fileType === 'image' || fileType === 'video' || isDicom) {
         const reader = new FileReader();
         reader.onloadend = () => {
           const dataUri = reader.result as string;
-          newFiles.push({ dataUri, type: fileType as 'image' | 'video' });
+          let newFileType: UploadedFile['type'] = 'image';
+          if (fileType === 'video') newFileType = 'video';
+          // DICOM files are treated as images for preview/analysis purposes
+          if (isDicom) newFileType = 'image'; 
+
+          newFiles.push({ dataUri, type: newFileType });
           processedFilesCount++;
 
           if (processedFilesCount === fileArray.length) {
@@ -61,6 +69,11 @@ export function ImageUploadCard({ onAnalyze, isAnalyzing, onClear }: ImageUpload
         reader.readAsDataURL(file);
       } else {
         processedFilesCount++;
+        toast({
+          variant: 'destructive',
+          title: 'Unsupported File Type',
+          description: `File '${file.name}' was skipped as it is not a supported image, video, or DICOM file.`,
+        });
          if (processedFilesCount === fileArray.length) {
             setSelectedFiles(prevFiles => [...prevFiles, ...newFiles]);
           }
@@ -119,7 +132,7 @@ export function ImageUploadCard({ onAnalyze, isAnalyzing, onClear }: ImageUpload
             </Button>
           )}
         </CardTitle>
-        <CardDescription>Select or drag and drop images or videos (up to {MAX_FILES}). The AI will analyze the entire series.</CardDescription>
+        <CardDescription>Select or drag and drop images (PNG, JPG), DICOM (.dcm), or videos (up to {MAX_FILES}). The AI will analyze the entire series.</CardDescription>
       </CardHeader>
       <CardContent>
         <div
@@ -135,7 +148,7 @@ export function ImageUploadCard({ onAnalyze, isAnalyzing, onClear }: ImageUpload
             id="file-upload"
             type="file"
             className="sr-only"
-            accept="image/png, image/jpeg, image/dicom, video/*"
+            accept="image/png, image/jpeg, application/dicom, .dcm, video/*"
             onChange={(e) => handleFiles(e.target.files)}
             disabled={isAnalyzing}
             multiple
@@ -146,7 +159,7 @@ export function ImageUploadCard({ onAnalyze, isAnalyzing, onClear }: ImageUpload
               <p className="text-muted-foreground">
                 <span className="font-semibold text-primary">Click to upload</span> or drag and drop
               </p>
-              <p className="text-xs text-muted-foreground">Supports X-rays, CTs, MRIs, and Ultrasound videos</p>
+              <p className="text-xs text-muted-foreground">Supports X-rays, CTs, MRIs, DICOM, and Ultrasound videos</p>
             </div>
           </label>
         </div>

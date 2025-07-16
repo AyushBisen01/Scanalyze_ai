@@ -52,7 +52,18 @@ export function DashboardClient() {
   const showResults = isAnalyzing || analysisResult;
 
   return (
-    <div className="container mx-auto max-w-7xl py-4 sm:py-6 md:py-8">
+    <div className="container mx-auto max-w-7xl py-4 sm:py-6 md:py-8 relative">
+      {/* Arrow button to go back to upload image card */}
+      {showResults && (
+        <button
+          onClick={resetState}
+          aria-label="Back to Upload"
+          className="fixed top-32 left-0 ml-72 z-30 bg-white border border-blue-200 shadow-md rounded-full w-10 h-10 flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 transition-colors"
+          style={{ boxShadow: '0 2px 8px 0 rgba(59,130,246,0.08)' }}
+        >
+          <i className="fas fa-arrow-left"></i>
+        </button>
+      )}
       <div className="grid grid-cols-1 gap-6">
         {!showResults && (
             <ImageUploadCard

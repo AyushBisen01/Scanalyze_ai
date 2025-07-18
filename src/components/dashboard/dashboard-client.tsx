@@ -10,6 +10,7 @@ import { ExplanationCard, type ExplanationMap } from './explanation-card';
 import { AssistantCard } from './assistant-card';
 import { SymptomCorrelatorCard } from './symptom-correlator-card';
 import { performAnalysisAction } from '@/app/actions';
+import { CameraCaptureCard } from './CameraCaptureCard';
 
 export function DashboardClient() {
   const [imageDataUris, setImageDataUris] = useState<string[] | null>(null);
@@ -18,6 +19,7 @@ export function DashboardClient() {
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
+  const [useCamera, setUseCamera] = useState(false);
 
   const resetState = () => {
     setImageDataUris(null);
@@ -66,11 +68,37 @@ export function DashboardClient() {
       )}
       <div className="grid grid-cols-1 gap-6">
         {!showResults && (
-            <ImageUploadCard
-            onAnalyze={handleAnalysis}
-            isAnalyzing={isAnalyzing}
-            onClear={resetState}
-            />
+          <>
+            <div className="flex gap-4 mb-4">
+              <button
+                className={`px-4 py-2 rounded ${!useCamera ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                onClick={() => setUseCamera(false)}
+                disabled={!useCamera}
+              >
+                Upload Image
+              </button>
+              <button
+                className={`px-4 py-2 rounded ${useCamera ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                onClick={() => setUseCamera(true)}
+                disabled={useCamera}
+              >
+                Use Camera
+              </button>
+            </div>
+            {!useCamera ? (
+              <ImageUploadCard
+                onAnalyze={handleAnalysis}
+                isAnalyzing={isAnalyzing}
+                onClear={resetState}
+              />
+            ) : (
+              <CameraCaptureCard
+                onAnalyze={handleAnalysis}
+                isAnalyzing={isAnalyzing}
+                onClear={resetState}
+              />
+            )}
+          </>
         )}
 
         {showResults && (
